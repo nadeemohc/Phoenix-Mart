@@ -1,0 +1,201 @@
+{% load static %}
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand fw-bold" href="{% url 'store:index' %}">Phoenix Mart</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+            <ul class="navbar-nav">
+                <li class="nav-item">
+                    <a class="nav-link active" href="{% url 'store:index' %}">Home</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link cart-icon" href="javascript:void(0)">
+                        <span class="ff-cart-icon material-icons">shopping_cart</span>
+                        <span id="cart-count" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                            {{ request.cart_count|default:0 }}
+                        </span>
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<!-- Cart Sidebar -->
+<div id="cartSidebar" class="cart-sidebar">
+    <div class="cart-header">
+        <h5>Your Cart</h5>
+        <span class="close-btn" id="closeCart">&times;</span>
+    </div>
+    <div class="cart-items">
+        {% if request.cart_items %}
+            {% for item in request.cart_items %}
+            <div class="cart-item">
+                <img src="{{ item.product.image.url }}" alt="{{ item.product.name }}" width="50">
+                <div>
+                    <p class="cart-item-name">{{ item.product.name }}</p>
+                    <p class="cart-item-price">£{{ item.product.price }} × {{ item.quantity }}</p>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p class="text-center py-3">Your cart is empty</p>
+        {% endif %}
+    </div>
+    <div class="cart-footer">
+        <p>Total: £{{ request.cart_total|default:"0.00" }}</p>
+        <button class="btn btn-warning w-100">Checkout</button>
+    </div>
+</div>
+
+<!-- Backdrop when cart is open -->
+<div id="cartBackdrop" class="cart-backdrop"></div>
+
+<style>
+    /* Cart Icon Styles - Updated to match footer */
+    .nav-link.cart-icon {
+        position: relative;
+        display: flex;
+        align-items: center;
+        color: #f8f9fa !important; /* Light color matching footer text */
+        transition: color 0.3s ease;
+    }
+    
+    .nav-link.cart-icon:hover {
+        color: #adb5bd !important; /* Light gray hover color */
+    }
+    
+    .material-icons {
+        font-size: 1.6rem;
+        cursor: pointer;
+        transition: inherit; /* Inherits the transition from parent */
+    }
+    
+    /* Remove the previous hover effect since we're styling the parent now */
+    
+    /* Cart count badge positioning adjustment */
+    #cart-count {
+        font-size: 0.6rem;
+        padding: 0.25em 0.4em;
+    }
+    
+    .material-icons {
+        font-size: 1.6rem;
+        cursor: pointer;
+        transition: color 0.2s ease;
+    }
+    
+    .navbar-dark .nav-link.cart-icon:hover .material-icons {
+        color: #aaa;
+    }
+    
+    /* Cart Sidebar Styles */
+    .cart-sidebar {
+        position: fixed;
+        top: 0;
+        right: -350px;
+        width: 350px;
+        height: 100%;
+        background: #fff;
+        box-shadow: -2px 0 5px rgba(0,0,0,0.2);
+        transition: right 0.3s ease;
+        z-index: 1050;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .cart-sidebar.open {
+        right: 0;
+    }
+    
+    .cart-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px;
+        background: #f8f9fa;
+        border-bottom: 1px solid #ddd;
+    }
+    
+    .cart-header h5 {
+        margin: 0;
+    }
+    
+    .close-btn {
+        font-size: 1.5rem;
+        cursor: pointer;
+    }
+    
+    .cart-items {
+        flex: 1;
+        overflow-y: auto;
+        padding: 15px;
+    }
+    
+    .cart-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 10px;
+    }
+    
+    .cart-item img {
+        margin-right: 10px;
+        width: 50px;
+        height: 50px;
+        object-fit: cover;
+    }
+    
+    .cart-item-name {
+        font-weight: bold;
+        margin: 0;
+        font-size: 0.9rem;
+    }
+    
+    .cart-item-price {
+        margin: 0;
+        color: #555;
+        font-size: 0.8rem;
+    }
+    
+    .cart-footer {
+        padding: 15px;
+        border-top: 1px solid #ddd;
+        background: #f8f9fa;
+    }
+    
+    /* Backdrop Styles */
+    .cart-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        z-index: 1040;
+        display: none;
+    }
+</style>
+
+<script>
+    // Cart toggle functionality
+    document.querySelector(".cart-icon").addEventListener("click", function() {
+        document.getElementById("cartSidebar").classList.add("open");
+        document.getElementById("cartBackdrop").style.display = "block";
+    });
+    
+    document.getElementById("closeCart").addEventListener("click", function() {
+        document.getElementById("cartSidebar").classList.remove("open");
+        document.getElementById("cartBackdrop").style.display = "none";
+    });
+    
+    // Close cart when clicking on backdrop
+    document.getElementById("cartBackdrop").addEventListener("click", function() {
+        document.getElementById("cartSidebar").classList.remove("open");
+        this.style.display = "none";
+    });
+</script>
