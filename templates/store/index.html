@@ -1,7 +1,6 @@
 {% extends 'store/base.html' %}
-{% load sweetify %}
+{% load static %}
 {% block content %}
-{% sweetify %}
 
 <!-- Login Modal -->
 <div class="modal fade" id="loginModal" tabindex="-1" aria-labelledby="loginModalLabel" aria-hidden="true">
@@ -73,7 +72,17 @@ document.addEventListener('DOMContentLoaded', function() {
         button.addEventListener('click', function(e) {
             e.preventDefault();
             currentForm = this.closest('form');
-            loginModal.show();
+            
+            // Check if user is authenticated
+            const isAuthenticated = {{ request.user.is_authenticated|yesno:"true,false" }};
+            
+            if (isAuthenticated) {
+                // If authenticated, submit the form directly
+                submitAddToCartForm(currentForm);
+            } else {
+                // If not authenticated, show login modal
+                loginModal.show();
+            }
         });
     });
     
@@ -93,9 +102,8 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             if (data.success) {
                 // Login successful, now submit the add to cart form
-                if (currentForm) {
-                    currentForm.submit();
-                }
+                loginModal.hide();
+                submitAddToCartForm(currentForm);
             } else {
                 // Show error message
                 alert(data.message || 'Login failed. Please try again.');
@@ -106,6 +114,32 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('An error occurred. Please try again.');
         });
     });
+    
+    function submitAddToCartForm(form) {
+        fetch(form.action, {
+            method: 'POST',
+            body: new FormData(form),
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update cart count in the navbar
+                document.getElementById('cart-count').textContent = data.cart_count;
+                
+                // Show success message
+                alert('Product added to cart successfully!');
+            } else {
+                alert('Failed to add product to cart. Please try again.');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred. Please try again.');
+        });
+    }
 });
 </script>
 {% endblock %}

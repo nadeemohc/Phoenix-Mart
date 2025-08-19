@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'store.apps.StoreConfig',
     'sweetify',
     'users',
+    'social_django'
 ]
 
 MIDDLEWARE = [
@@ -78,6 +79,9 @@ TEMPLATES = [
 AUTH_USER_MODEL = 'store.CustomUser'  # Format: 'app_name.ModelName'
 
 AUTHENTICATION_BACKENDS = [
+    'social_core.backends.open_id.OpenIdAuth',
+    'social_core.backends.google.GoogleOAuth2',
+    'social_core.backends.twitter.TwitterOAuth',
     'store.backends.EmailBackend',
     'django.contrib.auth.backends.ModelBackend',
 ]
