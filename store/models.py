@@ -186,3 +186,16 @@ class OrderItem(models.Model):
     
     def get_total_price(self):
         return self.price * self.quantity
+
+class Address(models.Model):
+    order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name="address")
+    full_name = models.CharField(max_length=200)
+    phone = models.CharField(max_length=15)
+    street = models.CharField(max_length=255)
+    city = models.CharField(max_length=100)
+    state = models.CharField(max_length=100)
+    zipcode = models.CharField(max_length=20)
+    country = models.CharField(max_length=100)
+
+    def __str__(self):
+        return f"{self.full_name}, {self.city}"
