@@ -100,6 +100,9 @@ def login_view(request):
             return JsonResponse({'success': False, 'message': 'Invalid email or password.'})
     return render(request, 'store/login.html', {'form': CustomAuthenticationForm()})
 
+def logout_view(request):
+    logout(request)
+    return redirect('store:index')
 
 @require_POST
 def add_to_cart(request, product_id):
