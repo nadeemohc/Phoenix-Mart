@@ -13,3 +13,6 @@ venv/
 
 # Environment variables file
 .env
+
+# Image files from media
+/media/

@@ -1,0 +1,133 @@
+<!-- Checkout Modal -->
+<div
+  class="modal fade"
+  id="checkoutModal"
+  tabindex="-1"
+  aria-labelledby="checkoutModalLabel"
+  aria-hidden="true"
+>
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form method="post" action="{% url 'store:confirm_order' %}">
+        {% csrf_token %}
+        <div class="modal-header">
+          <h5 class="modal-title" id="checkoutModalLabel">Order Summary</h5>
+          <button
+            type="button"
+            class="btn-close"
+            data-bs-dismiss="modal"
+            aria-label="Close"
+          ></button>
+        </div>
+
+        <div class="modal-body">
+          <!-- Order Items Table -->
+          <table class="table table-striped">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Qty</th>
+                <th>Unit Price</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in request.cart_items %}
+              <tr>
+                <td>{{ item.product.name }}</td>
+                <td>{{ item.quantity }}</td>
+                <td>£{{ item.product.price|floatformat:2 }}</td>
+                <td>£{{ item.line_total|floatformat:2 }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="3" class="text-end"><strong>Total</strong></td>
+                <td>
+                  <strong>£{{ request.cart_total|floatformat:2 }}</strong>
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+
+          <!-- Address Details -->
+          <h5 class="mt-4">Delivery Address</h5>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label for="full_name" class="form-label">Full Name</label>
+              <input
+                type="text"
+                class="form-control"
+                name="full_name"
+                id="full_name"
+                value="{{ request.user.get_full_name }}"
+                required
+              />
+            </div>
+            <div class="col-md-6">
+              <label for="phone" class="form-label">Phone</label>
+              <input
+                type="text"
+                class="form-control"
+                name="phone"
+                id="phone"
+                value="{{ request.user.phone_number }}"
+                required
+              />
+            </div>
+            <div class="col-md-6">
+              <label for="street" class="form-label">House No / Street</label>
+              <input
+                type="text"
+                class="form-control"
+                name="street"
+                id="street"
+                required
+              />
+            </div>
+            <div class="col-md-6">
+              <label for="city" class="form-label">City</label>
+              <input
+                type="text"
+                class="form-control"
+                name="city"
+                id="city"
+                required
+              />
+            </div>
+            <div class="col-md-6">
+              <label for="state" class="form-label">State</label>
+              <input type="text" class="form-control" name="state" id="state" />
+            </div>
+            <div class="col-md-3">
+              <label for="zipcode" class="form-label">Postcode</label>
+              <input
+                type="text"
+                class="form-control"
+                name="zipcode"
+                id="zipcode"
+                required
+              />
+            </div>
+            <div class="col-md-3">
+              <label for="country" class="form-label">Country</label>
+              <input
+                type="text"
+                class="form-control"
+                name="country"
+                id="country"
+                value="UK"
+                required
+              />
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-success">Confirm Order</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

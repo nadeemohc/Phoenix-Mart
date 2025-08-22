@@ -155,6 +155,11 @@ class CartItem(models.Model):
     class Meta:
         unique_together = ['cart', 'product']
     
+    @property
+    def line_total(self):
+        return self.product.price * self.quantity
+
+
     def __str__(self):
         return f"{self.quantity}x {self.product.name} in {self.cart}"
 

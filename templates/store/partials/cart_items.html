@@ -1,11 +1,19 @@
 {% for item in cart_items %}
-<div class="cart-item d-flex justify-content-between align-items-center" data-item-id="{{ item.id }}">
-    <span>{{ item.product.name }}</span>
-    <input type="number" min="1" value="{{ item.quantity }}" 
-           class="form-control form-control-sm quantity-input" style="width:70px;">
-    <button class="btn btn-sm btn-outline-danger remove-item">
-        <i class="fas fa-trash"></i>
-    </button>
+<div
+  class="cart-item d-flex justify-content-between align-items-center"
+  data-item-id="{{ item.id }}"
+>
+  <span>{{ item.product.name }}</span>
+  <input
+    type="number"
+    min="1"
+    value="{{ item.quantity }}"
+    class="form-control form-control-sm quantity-input"
+    style="width: 70px"
+  />
+  <button class="btn btn-sm btn-outline-danger remove-item">
+    <i class="fas fa-trash"></i>
+  </button>
 </div>
 {% empty %}
 <p class="text-muted">Your cart is empty.</p>
