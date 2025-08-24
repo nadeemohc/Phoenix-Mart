@@ -1,20 +1,29 @@
 {% for item in cart_items %}
 <div
-  class="cart-item d-flex justify-content-between align-items-center"
+  class="cart-item d-flex align-items-center justify-content-between"
   data-item-id="{{ item.id }}"
 >
-  <span>{{ item.product.name }}</span>
+  <img
+    src="{{ item.product.image.url }}"
+    alt="{{ item.product.name }}"
+    style="width: 50px; height: auto"
+  />
+  <div class="flex-grow-1 px-2">
+    <p class="cart-item-name mb-0">{{ item.product.name }}</p>
+    <p class="cart-item-price text-muted mb-0">£{{ item.product.price }}</p>
+  </div>
   <input
     type="number"
     min="1"
     value="{{ item.quantity }}"
-    class="form-control form-control-sm quantity-input"
-    style="width: 70px"
+    class="form-control form-control-sm quantity-input me-2"
+    style="width: 60px; flex: 0 0 auto"
   />
-  <button class="btn btn-sm btn-outline-danger remove-item">
-    <i class="fas fa-trash"></i>
-  </button>
+  <i
+    class="bi bi-trash text-danger remove-item"
+    style="cursor: pointer; font-size: 1.2rem"
+  ></i>
 </div>
 {% empty %}
-<p class="text-muted">Your cart is empty.</p>
+<p class="text-center py-3">Your cart is empty</p>
 {% endfor %}

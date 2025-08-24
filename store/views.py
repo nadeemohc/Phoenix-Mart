@@ -108,7 +108,10 @@ def remove_cart_item(request, item_id):
 def _cart_response(cart):
     """Helper to return consistent cart JSON with rendered HTML."""
     cart_items = cart.items.all()
-    cart_count = sum(item.quantity for item in cart_items)
+    
+    # This line is the fix. It counts the number of unique items (products).
+    cart_count = cart_items.count()
+    
     cart_total = sum(item.product.price * item.quantity for item in cart_items)
 
     cart_html = render_to_string(

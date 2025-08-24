@@ -1,6 +1,5 @@
 {% load static %}
 <head>
-  <!-- Bootstrap Icons -->
   <link
     rel="stylesheet"
     href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"
@@ -81,7 +80,6 @@
   </div>
 </nav>
 
-<!-- Cart Sidebar -->
 <div id="cartSidebar" class="cart-sidebar">
   <div class="cart-header">
     <h5>Your Cart</h5>
@@ -130,7 +128,6 @@
   </div>
 </div>
 
-<!-- Backdrop when cart is open -->
 <div id="cartBackdrop" class="cart-backdrop"></div>
 
 <style>
@@ -239,7 +236,7 @@
       this.style.display = "none";
     });
 
-  // Refresh cart UI
+  // Function to refresh the cart UI with new data
   function refreshCart(data) {
     if (data.success) {
       document.getElementById("cart-count").textContent = data.cart_count;
@@ -247,63 +244,90 @@
         ".cart-footer p"
       ).textContent = `Total: £${data.cart_total}`;
       document.querySelector(".cart-items").innerHTML = data.cart_html;
-
-      // Rebind events for new DOM
-      attachCartEvents();
     }
   }
 
-  // Attach events to cart items
-  function attachCartEvents() {
-    // Quantity update
-    document.querySelectorAll(".quantity-input").forEach((input) => {
-      input.addEventListener("change", async function () {
-        const itemId = this.closest(".cart-item").dataset.itemId;
-        const res = await fetch(`/cart/update/${itemId}/`, {
-          method: "POST",
-          headers: { "X-CSRFToken": "{{ csrf_token }}" },
-          body: new URLSearchParams({ quantity: this.value }),
-        });
-        refreshCart(await res.json());
-      });
+  // Use event delegation for real-time updates on dynamic elements
+  document.addEventListener('DOMContentLoaded', function() {
+    const cartItemsContainer = document.querySelector(".cart-items");
+
+    // Event listener for quantity input change
+    cartItemsContainer.addEventListener('change', function(e) {
+      if (e.target.classList.contains('quantity-input')) {
+        const itemId = e.target.closest('.cart-item').dataset.itemId;
+        const quantity = e.target.value;
+        if (quantity > 0) {
+          updateCartItem(itemId, quantity);
+        } else {
+          removeCartItem(itemId);
+        }
+      }
     });
 
-    // Remove item
-    document.querySelectorAll(".remove-item").forEach((btn) => {
-      btn.addEventListener("click", async function () {
-        const itemId = this.closest(".cart-item").dataset.itemId;
-        const res = await fetch(`/cart/remove/${itemId}/`, {
-          method: "POST",
-          headers: { "X-CSRFToken": "{{ csrf_token }}" },
-        });
-        refreshCart(await res.json());
-      });
-    });
-  }
-
-  // Add to cart (handles "Add to Cart" buttons site-wide)
-  document.querySelectorAll(".add-to-cart").forEach((btn) => {
-    btn.addEventListener("click", async function (e) {
-      e.preventDefault();
-      const productId = this.dataset.productId;
-      const res = await fetch(`/cart/add/${productId}/`, {
-        method: "POST",
-        headers: { "X-CSRFToken": "{{ csrf_token }}" },
-      });
-      refreshCart(await res.json());
-
-      // auto open cart sidebar after adding
-      document.getElementById("cartSidebar").classList.add("open");
-      document.getElementById("cartBackdrop").style.display = "block";
+    // Event listener for remove item click
+    cartItemsContainer.addEventListener('click', function(e) {
+      // Check if the clicked element or its parent has the 'remove-item' class
+      const removeButton = e.target.closest('.remove-item');
+      if (removeButton) {
+        const itemId = removeButton.closest('.cart-item').dataset.itemId;
+        removeCartItem(itemId);
+      }
     });
   });
 
-  // Initial binding
-  attachCartEvents();
-  document
-    .querySelector('[data-bs-target="#checkoutModal"]')
-    .addEventListener("click", () => {
-      document.getElementById("cartSidebar").classList.remove("open");
-      document.getElementById("cartBackdrop").style.display = "none";
-    });
+  // Function to update cart item via AJAX
+  function updateCartItem(itemId, quantity) {
+    fetch(`/cart/update/${itemId}/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCookie('csrftoken'),
+      },
+      body: JSON.stringify({ quantity: quantity })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        refreshCart(data);
+      } else {
+        alert("Failed to update cart.");
+      }
+    })
+    .catch(error => console.error('Error:', error));
+  }
+
+  // Function to remove cart item via AJAX
+  function removeCartItem(itemId) {
+    fetch(`/cart/remove/${itemId}/`, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': getCookie('csrftoken'),
+      },
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        refreshCart(data);
+      } else {
+        alert("Failed to remove item.");
+      }
+    })
+    .catch(error => console.error('Error:', error));
+  }
+  
+  // Helper function to get CSRF token from cookies
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.startsWith(name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
 </script>

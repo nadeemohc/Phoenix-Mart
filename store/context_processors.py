@@ -10,7 +10,8 @@ def cart_context(request):
         # For authenticated users
         try:
             cart = Cart.objects.get(user=request.user)
-            cart_count = cart.items.count()
+            # Corrected logic: sum the quantities of all items
+            cart_count = sum(item.quantity for item in cart.items.all())
             cart_items = cart.items.all()
             cart_total = sum(item.product.price * item.quantity for item in cart_items)
         except Cart.DoesNotExist:
@@ -20,7 +21,8 @@ def cart_context(request):
         if request.session.session_key:
             try:
                 cart = Cart.objects.get(session_key=request.session.session_key, is_guest=True)
-                cart_count = cart.items.count()
+                # Corrected logic: sum the quantities of all items
+                cart_count = sum(item.quantity for item in cart.items.all())
                 cart_items = cart.items.all()
                 cart_total = sum(item.product.price * item.quantity for item in cart_items)
             except Cart.DoesNotExist:
