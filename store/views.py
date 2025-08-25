@@ -126,6 +126,52 @@ def _cart_response(cart):
         "cart_html": cart_html,
     })
 
+# @login_required
+# @transaction.atomic
+# def confirm_order(request):
+#     if request.method == "POST":
+#         cart = Cart.objects.filter(user=request.user).first()
+#         if not cart or cart.items.count() == 0:
+#             return redirect("store:index")
+
+#         # Create Order
+#         order = Order.objects.create(
+#             user=request.user,
+#             delivery_address=f"{request.POST['street']}, {request.POST['city']}, {request.POST['zipcode']}, {request.POST['country']}",
+#             total_price=request.cart_total,
+#             COD=True
+#         )
+
+#         # Add Address
+#         Address.objects.create(
+#             order=order,
+#             full_name=request.POST['full_name'],
+#             phone=request.POST['phone'],
+#             street=request.POST['street'],
+#             city=request.POST['city'],
+#             state=request.POST.get('state', ''),
+#             zipcode=request.POST['zipcode'],
+#             country=request.POST['country'],
+#         )
+
+#         # Create Order Items
+#         for item in cart.items.all():
+#             OrderItem.objects.create(
+#                 order=order,
+#                 product=item.product,
+#                 quantity=item.quantity,
+#                 price=item.product.price
+#             )
+
+#         # Clear Cart
+#         cart.items.all().delete()
+
+#         return render(request, "store/order_success.html", {"order": order})
+    
+#     return redirect("store:index")
+
+
+
 @login_required
 @transaction.atomic
 def confirm_order(request):
@@ -134,11 +180,15 @@ def confirm_order(request):
         if not cart or cart.items.count() == 0:
             return redirect("store:index")
 
+        # Get the cart items and calculate the total price
+        cart_items = cart.items.all()
+        cart_total = sum(item.product.price * item.quantity for item in cart_items)
+
         # Create Order
         order = Order.objects.create(
             user=request.user,
             delivery_address=f"{request.POST['street']}, {request.POST['city']}, {request.POST['zipcode']}, {request.POST['country']}",
-            total_price=request.cart_total,
+            total_price=cart_total,  # Use the newly calculated cart_total
             COD=True
         )
 
@@ -155,7 +205,7 @@ def confirm_order(request):
         )
 
         # Create Order Items
-        for item in cart.items.all():
+        for item in cart_items:
             OrderItem.objects.create(
                 order=order,
                 product=item.product,
@@ -169,6 +219,7 @@ def confirm_order(request):
         return render(request, "store/order_success.html", {"order": order})
     
     return redirect("store:index")
+    
 
 
     # def login_view(request):

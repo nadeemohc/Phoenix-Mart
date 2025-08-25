@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import Category, SubCategory, Product, Cart, CartItem, Order, CustomUser
+from .models import Category, SubCategory, Product, Cart, CartItem, Order, CustomUser, OrderItem
 
 
 class CustomUserAdmin(UserAdmin):
@@ -48,21 +48,6 @@ class SubCategoryAdmin(admin.ModelAdmin):
     list_filter = ("category",)
 
 
-@admin.register(Product)
-class ProductAdmin(admin.ModelAdmin):
-    list_display = ("name", "category", "subcategory", "price", "stock", "preview_image")
-    list_filter = ("category", "subcategory")
-    search_fields = ("name",)
-    ordering = ("name",)
-
-    def preview_image(self, obj):
-        if obj.image:
-            return f'<img src="{obj.image.url}" width="50" height="50" style="object-fit:cover;" />'
-        return "No Image"
-    preview_image.allow_tags = True
-    preview_image.short_description = "Image"
-
-
 class CartItemInline(admin.TabularInline):
     model = CartItem
     extra = 1
@@ -79,8 +64,66 @@ class CartItemAdmin(admin.ModelAdmin):
     list_display = ("cart", "product", "quantity")
 
 
+# Create the inline class for OrderItem
+class OrderItemInline(admin.TabularInline):
+    """
+    Defines the inline representation of OrderItem for the Django admin.
+    This allows OrderItem objects to be edited directly on the Order page.
+    """
+    model = OrderItem
+    extra = 0
+    fields = ['product', 'quantity', 'price']
+    readonly_fields = ['product', 'quantity', 'price']
+
+
+# Use a decorator to register the Order model with the custom admin class
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ("id", "user", "delivery_address", "total_price", "COD", "created_at")
-    list_filter = ("COD", "created_at")
-    search_fields = ("user__username", "delivery_address")
+    """
+    Customizes the Django admin interface for the Order model.
+    """
+    # 'list_display' controls which fields are shown on the change list page.
+    list_display = ['id', 'user', 'created_at', 'total_price', 'status', 'COD']
+    
+    # 'list_filter' adds a sidebar for filtering the list.
+    list_filter = ['status', 'COD', 'created_at']
+    
+    # 'search_fields' enables a search box for these fields.
+    search_fields = ['user__email', 'delivery_address']
+    
+    # 'inlines' is the key part that includes the OrderItemInline.
+    # This displays the related OrderItems on the Order's detail page.
+    inlines = [
+        OrderItemInline,
+    ]
+
+    # 'fieldsets' can be used to group fields in the detail view.
+    fieldsets = (
+        ('Order Information', {
+            'fields': ('user', 'created_at', 'updated_at', 'status', 'COD'),
+        }),
+        ('Pricing', {
+            'fields': ('total_price',),
+        }),
+        ('Delivery Address', {
+            'fields': ('delivery_address',),
+        }),
+    )
+
+    # 'readonly_fields' prevents these fields from being edited.
+    readonly_fields = ['user', 'created_at', 'updated_at', 'total_price']
+
+# Register the Product model as well for completeness
+@admin.register(Product)
+class ProductAdmin(admin.ModelAdmin):
+    list_display = ("name", "category", "subcategory", "price", "stock", "preview_image")
+    list_filter = ("category", "subcategory")
+    search_fields = ("name",)
+    ordering = ("name",)
+
+    def preview_image(self, obj):
+        if obj.image:
+            return f'<img src="{obj.image.url}" width="50" height="50" style="object-fit:cover;" />'
+        return "No Image"
+    preview_image.allow_tags = True
+    preview_image.short_description = "Image"
