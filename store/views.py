@@ -15,31 +15,38 @@ from django.db import transaction
 def index(request):
     products = Product.objects.all()
     
-    # Get cart information for the user
     cart_count = 0
     cart_items = []
     cart_total = 0
     
     if request.user.is_authenticated and not request.user.is_guest:
-        # For authenticated users
         try:
             cart = Cart.objects.get(user=request.user)
-            cart_count = cart.items.count()
-            cart_items = cart.items.all()
-            cart_total = sum(item.product.price * item.quantity for item in cart_items)
         except Cart.DoesNotExist:
-            pass
+            cart = None
     else:
-        # For guest users
         if request.session.session_key:
             try:
                 cart = Cart.objects.get(session_key=request.session.session_key, is_guest=True)
-                cart_count = cart.items.count()
-                cart_items = cart.items.all()
-                cart_total = sum(item.product.price * item.quantity for item in cart_items)
             except Cart.DoesNotExist:
-                pass
+                cart = None
     
+    if cart:
+        cart_items_with_totals = []
+        for item in cart.items.all():
+            # Create a dictionary or another object to hold the data
+            item_data = {
+                'id': item.id,
+                'product': item.product,
+                'quantity': item.quantity,
+                'line_total': item.line_total  # Just read the property
+            }
+            cart_items_with_totals.append(item_data)
+        
+        cart_count = len(cart_items_with_totals)
+        cart_total = sum(item['line_total'] for item in cart_items_with_totals)
+        cart_items = cart_items_with_totals # Use the new list
+
     # Add cart information to the request
     request.cart_count = cart_count
     request.cart_items = cart_items
@@ -57,7 +64,7 @@ def add_to_cart(request, product_id):
     product = get_object_or_404(Product, id=product_id)
     quantity = int(request.POST.get("quantity", 1))
 
-    # Get or create cart (This part is fine)
+    # Get or create cart
     if request.user.is_authenticated and not request.user.is_guest:
         cart, _ = Cart.objects.get_or_create(user=request.user, defaults={"is_guest": False})
     else:
@@ -67,46 +74,37 @@ def add_to_cart(request, product_id):
             session_key=request.session.session_key, defaults={"is_guest": True}
         )
 
-    # Corrected logic: Use a try-except block to find and update the item, or create a new one.
-    try:
-        cart_item = CartItem.objects.get(cart=cart, product=product)
+    # Increment if exists, otherwise create
+    cart_item, created = CartItem.objects.get_or_create(cart=cart, product=product)
+    if created:
+        cart_item.quantity = quantity
+    else:
         cart_item.quantity += quantity
-        cart_item.save()
-    except CartItem.DoesNotExist:
-        CartItem.objects.create(cart=cart, product=product, quantity=quantity)
+    cart_item.save()
 
     return _cart_response(cart)
-
 
 
 @require_POST
 def update_cart_item(request, item_id):
     try:
-        # Parse the JSON data from the request body
         data = json.loads(request.body)
-        quantity = data.get("quantity")
-
-        if quantity is None:
-            return JsonResponse({"success": False, "message": "Quantity not provided."})
-        
-        # Ensure quantity is an integer
-        quantity = int(quantity)
+        quantity = int(data.get("quantity", 1))
 
         cart_item = CartItem.objects.get(id=item_id)
         cart = cart_item.cart
 
         if quantity > 0:
-            cart_item.quantity = quantity
+            cart_item.quantity = quantity  # absolute set
             cart_item.save()
         else:
             cart_item.delete()
 
         return _cart_response(cart)
+
     except CartItem.DoesNotExist:
         return JsonResponse({"success": False, "message": "Item not found"})
-    except json.JSONDecodeError:
-        return JsonResponse({"success": False, "message": "Invalid JSON."})
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, json.JSONDecodeError):
         return JsonResponse({"success": False, "message": "Invalid quantity."})
 
 
@@ -123,69 +121,33 @@ def remove_cart_item(request, item_id):
 
 def _cart_response(cart):
     """Helper to return consistent cart JSON with rendered HTML."""
-    cart_items = cart.items.all()
-    
-    # This line is the fix. It counts the number of unique items (products).
-    cart_count = cart_items.count()
-    
-    cart_total = sum(item.product.price * item.quantity for item in cart_items)
+    # always fetch fresh from DB
+    cart_items = CartItem.objects.filter(cart=cart).select_related("product")
+
+    cart_items_with_totals = [
+        {
+            "id": item.id,
+            "product": item.product,
+            "quantity": item.quantity,
+            "line_total": item.line_total,
+        }
+        for item in cart_items
+    ]
+
+    cart_count = len(cart_items_with_totals)
+    cart_total = sum(item["line_total"] for item in cart_items_with_totals)
 
     cart_html = render_to_string(
         "store/partials/cart_items.html",
-        {"cart_items": cart_items}
+        {"cart_items": cart_items_with_totals},
     )
 
     return JsonResponse({
         "success": True,
         "cart_count": cart_count,
-        "cart_total": str(cart_total),
+        "cart_total": f"{cart_total:.2f}",
         "cart_html": cart_html,
     })
-
-# @login_required
-# @transaction.atomic
-# def confirm_order(request):
-#     if request.method == "POST":
-#         cart = Cart.objects.filter(user=request.user).first()
-#         if not cart or cart.items.count() == 0:
-#             return redirect("store:index")
-
-#         # Create Order
-#         order = Order.objects.create(
-#             user=request.user,
-#             delivery_address=f"{request.POST['street']}, {request.POST['city']}, {request.POST['zipcode']}, {request.POST['country']}",
-#             total_price=request.cart_total,
-#             COD=True
-#         )
-
-#         # Add Address
-#         Address.objects.create(
-#             order=order,
-#             full_name=request.POST['full_name'],
-#             phone=request.POST['phone'],
-#             street=request.POST['street'],
-#             city=request.POST['city'],
-#             state=request.POST.get('state', ''),
-#             zipcode=request.POST['zipcode'],
-#             country=request.POST['country'],
-#         )
-
-#         # Create Order Items
-#         for item in cart.items.all():
-#             OrderItem.objects.create(
-#                 order=order,
-#                 product=item.product,
-#                 quantity=item.quantity,
-#                 price=item.product.price
-#             )
-
-#         # Clear Cart
-#         cart.items.all().delete()
-
-#         return render(request, "store/order_success.html", {"order": order})
-    
-#     return redirect("store:index")
-
 
 
 @login_required
@@ -236,6 +198,103 @@ def confirm_order(request):
     
     return redirect("store:index")
     
+
+def get_cart_summary(request):
+    """
+    Returns the updated cart summary HTML for the checkout modal.
+    """
+    cart_items = []
+    cart_total = 0
+    
+    # Get the correct cart
+    if request.user.is_authenticated and not request.user.is_guest:
+        try:
+            cart = Cart.objects.get(user=request.user)
+        except Cart.DoesNotExist:
+            cart = None
+    else:
+        if request.session.session_key:
+            try:
+                cart = Cart.objects.get(session_key=request.session.session_key, is_guest=True)
+            except Cart.DoesNotExist:
+                cart = None
+
+    if cart:
+        # Create a new list to hold the items with their calculated totals
+        cart_items_with_totals = []
+        for item in cart.items.all():
+            item_data = {
+                'id': item.id,
+                'product': item.product,
+                'quantity': item.quantity,
+                'line_total': item.line_total  # Read the property
+            }
+            cart_items_with_totals.append(item_data)
+        
+        cart_total = sum(item['line_total'] for item in cart_items_with_totals)
+        cart_items = cart_items_with_totals # Use this new list
+
+    summary_html = render_to_string(
+        'store/partials/checkout_summary.html',
+        {
+            'cart_items': cart_items,
+            'cart_total': cart_total
+        },
+        request=request
+    )
+    
+    return JsonResponse({
+        'success': True,
+        'summary_html': summary_html
+    })
+
+    
+
+# @login_required
+# @transaction.atomic
+# def confirm_order(request):
+#     if request.method == "POST":
+#         cart = Cart.objects.filter(user=request.user).first()
+#         if not cart or cart.items.count() == 0:
+#             return redirect("store:index")
+
+#         # Create Order
+#         order = Order.objects.create(
+#             user=request.user,
+#             delivery_address=f"{request.POST['street']}, {request.POST['city']}, {request.POST['zipcode']}, {request.POST['country']}",
+#             total_price=request.cart_total,
+#             COD=True
+#         )
+
+#         # Add Address
+#         Address.objects.create(
+#             order=order,
+#             full_name=request.POST['full_name'],
+#             phone=request.POST['phone'],
+#             street=request.POST['street'],
+#             city=request.POST['city'],
+#             state=request.POST.get('state', ''),
+#             zipcode=request.POST['zipcode'],
+#             country=request.POST['country'],
+#         )
+
+#         # Create Order Items
+#         for item in cart.items.all():
+#             OrderItem.objects.create(
+#                 order=order,
+#                 product=item.product,
+#                 quantity=item.quantity,
+#                 price=item.product.price
+#             )
+
+#         # Clear Cart
+#         cart.items.all().delete()
+
+#         return render(request, "store/order_success.html", {"order": order})
+    
+#     return redirect("store:index")
+
+
 
 
     # def login_view(request):

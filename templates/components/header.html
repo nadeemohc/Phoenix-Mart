@@ -272,11 +272,12 @@
         .then(response => response.json())
         .then(data => {
           if (data.success) {
+            // This is the crucial part: update the UI with the new data
             refreshCart(data);
           } else {
             alert(data.error);
             // Revert the quantity input to the server's state
-            e.target.value = data.current_quantity;
+            // This requires the view to return the current quantity on error.
           }
         })
         .catch(error => console.error('Error updating cart:', error));
@@ -285,8 +286,7 @@
 
     // Event listener for remove item click
     cartItemsContainer.addEventListener('click', function(e) {
-      // Check if the clicked element or its parent has the 'remove-item' class
-      const removeButton = e.target.closest('.remove-item');
+      const removeButton = e.target.closest('.bi-trash');
       if (removeButton) {
         const itemId = removeButton.closest('.cart-item').dataset.itemId;
         removeCartItem(itemId);
@@ -294,26 +294,9 @@
     });
   });
 
-  // Function to update cart item via AJAX
-  function updateCartItem(itemId, quantity) {
-    fetch(`/cart/update/${itemId}/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRFToken': getCookie('csrftoken'),
-      },
-      body: JSON.stringify({ quantity: quantity })
-    })
-    .then(response => response.json())
-    .then(data => {
-      if (data.success) {
-        refreshCart(data);
-      } else {
-        alert("Failed to update cart.");
-      }
-    })
-    .catch(error => console.error('Error:', error));
-  }
+  // Function to update cart item via AJAX (already included in the DOMContentLoaded listener)
+  // This function is now redundant as the logic is in the event listener above.
+  // We can safely remove it from here.
 
   // Function to remove cart item via AJAX
   function removeCartItem(itemId) {
@@ -336,17 +319,17 @@
   
   // Helper function to get CSRF token from cookies
   function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-      const cookies = document.cookie.split(';');
-      for (let i = 0; i < cookies.length; i++) {
-        const cookie = cookies[i].trim();
-        if (cookie.startsWith(name + '=')) {
-          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-          break;
-        }
+      let cookieValue = null;
+      if (document.cookie && document.cookie !== '') {
+          const cookies = document.cookie.split(';');
+          for (let i = 0; i < cookies.length; i++) {
+              const cookie = cookies[i].trim();
+              if (cookie.startsWith(name + '=')) {
+                  cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                  break;
+              }
+          }
       }
-    }
-    return cookieValue;
+      return cookieValue;
   }
 </script>
