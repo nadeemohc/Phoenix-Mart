@@ -97,10 +97,17 @@ SITE_ID = 1
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 # Database
+# DATABASES = {
+#     'default': {
+#         'ENGINE': os.getenv("DB_ENGINE", "django.db.backends.sqlite3"),
+#         'NAME': BASE_DIR / os.getenv("DB_NAME", "db.sqlite3"),
+#     }
+# }
+
 DATABASES = {
     'default': {
-        'ENGINE': os.getenv("DB_ENGINE", "django.db.backends.sqlite3"),
-        'NAME': BASE_DIR / os.getenv("DB_NAME", "db.sqlite3"),
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': str(BASE_DIR / 'db.sqlite3'), # Convert to string
     }
 }
 

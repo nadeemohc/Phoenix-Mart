@@ -1,4 +1,4 @@
-# in store/views.py
+import json
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout, authenticate
 from django.http import JsonResponse
@@ -57,7 +57,7 @@ def add_to_cart(request, product_id):
     product = get_object_or_404(Product, id=product_id)
     quantity = int(request.POST.get("quantity", 1))
 
-    # Get or create cart
+    # Get or create cart (This part is fine)
     if request.user.is_authenticated and not request.user.is_guest:
         cart, _ = Cart.objects.get_or_create(user=request.user, defaults={"is_guest": False})
     else:
@@ -67,31 +67,47 @@ def add_to_cart(request, product_id):
             session_key=request.session.session_key, defaults={"is_guest": True}
         )
 
-    # Add or update cart item
-    cart_item, created = CartItem.objects.get_or_create(
-        cart=cart, product=product, defaults={"quantity": quantity}
-    )
-    if not created:
+    # Corrected logic: Use a try-except block to find and update the item, or create a new one.
+    try:
+        cart_item = CartItem.objects.get(cart=cart, product=product)
         cart_item.quantity += quantity
         cart_item.save()
+    except CartItem.DoesNotExist:
+        CartItem.objects.create(cart=cart, product=product, quantity=quantity)
 
     return _cart_response(cart)
+
 
 
 @require_POST
 def update_cart_item(request, item_id):
     try:
+        # Parse the JSON data from the request body
+        data = json.loads(request.body)
+        quantity = data.get("quantity")
+
+        if quantity is None:
+            return JsonResponse({"success": False, "message": "Quantity not provided."})
+        
+        # Ensure quantity is an integer
+        quantity = int(quantity)
+
         cart_item = CartItem.objects.get(id=item_id)
         cart = cart_item.cart
-        quantity = int(request.POST.get("quantity", 1))
+
         if quantity > 0:
             cart_item.quantity = quantity
             cart_item.save()
         else:
             cart_item.delete()
+
         return _cart_response(cart)
     except CartItem.DoesNotExist:
         return JsonResponse({"success": False, "message": "Item not found"})
+    except json.JSONDecodeError:
+        return JsonResponse({"success": False, "message": "Invalid JSON."})
+    except (ValueError, TypeError):
+        return JsonResponse({"success": False, "message": "Invalid quantity."})
 
 
 @require_POST

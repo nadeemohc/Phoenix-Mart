@@ -1,0 +1,28 @@
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>Item</th>
+      <th>Qty</th>
+      <th>Unit Price</th>
+      <th>Total</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in cart_items %}
+    <tr>
+      <td>{{ item.product.name }}</td>
+      <td>{{ item.quantity }}</td>
+      <td>£{{ item.product.price|floatformat:2 }}</td>
+      <td>£{{ item.line_total|floatformat:2 }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr>
+      <td colspan="3" class="text-end"><strong>Total</strong></td>
+      <td>
+        <strong>£{{ cart_total|floatformat:2 }}</strong>
+      </td>
+    </tr>
+  </tfoot>
+</table>

@@ -252,15 +252,34 @@
     const cartItemsContainer = document.querySelector(".cart-items");
 
     // Event listener for quantity input change
-    cartItemsContainer.addEventListener('change', function(e) {
-      if (e.target.classList.contains('quantity-input')) {
-        const itemId = e.target.closest('.cart-item').dataset.itemId;
-        const quantity = e.target.value;
-        if (quantity > 0) {
-          updateCartItem(itemId, quantity);
-        } else {
-          removeCartItem(itemId);
-        }
+    cartItemsContainer.addEventListener("change", function (e) {
+      if (e.target.classList.contains("quantity-input")) {
+        const cartItemDiv = e.target.closest(".cart-item");
+        const itemId = cartItemDiv.dataset.itemId;
+        const newQuantity = e.target.value;
+
+        // AJAX call to update the cart
+        fetch(`/cart/update/${itemId}/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+          },
+          body: JSON.stringify({
+            quantity: newQuantity
+          })
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            refreshCart(data);
+          } else {
+            alert(data.error);
+            // Revert the quantity input to the server's state
+            e.target.value = data.current_quantity;
+          }
+        })
+        .catch(error => console.error('Error updating cart:', error));
       }
     });
 
