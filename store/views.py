@@ -14,45 +14,54 @@ from django.db import transaction
 
 def index(request):
     products = Product.objects.all()
-    
+
+    # Always initialize cart
+    cart = None
     cart_count = 0
     cart_items = []
     cart_total = 0
-    
-    if request.user.is_authenticated and not request.user.is_guest:
+
+    if request.user.is_authenticated and not getattr(request.user, "is_guest", False):
         try:
             cart = Cart.objects.get(user=request.user)
         except Cart.DoesNotExist:
             cart = None
     else:
-        if request.session.session_key:
-            try:
-                cart = Cart.objects.get(session_key=request.session.session_key, is_guest=True)
-            except Cart.DoesNotExist:
-                cart = None
-    
+        # Ensure the session exists
+        if not request.session.session_key:
+            request.session.create()
+
+        try:
+            cart = Cart.objects.get(session_key=request.session.session_key, is_guest=True)
+        except Cart.DoesNotExist:
+            cart = None
+
     if cart:
         cart_items_with_totals = []
         for item in cart.items.all():
-            # Create a dictionary or another object to hold the data
             item_data = {
-                'id': item.id,
-                'product': item.product,
-                'quantity': item.quantity,
-                'line_total': item.line_total  # Just read the property
+                "id": item.id,
+                "product": item.product,
+                "quantity": item.quantity,
+                "line_total": item.line_total,  # Assuming you defined @property line_total in model
             }
             cart_items_with_totals.append(item_data)
-        
-        cart_count = len(cart_items_with_totals)
-        cart_total = sum(item['line_total'] for item in cart_items_with_totals)
-        cart_items = cart_items_with_totals # Use the new list
 
-    # Add cart information to the request
+        cart_count = len(cart_items_with_totals)
+        cart_total = sum(item["line_total"] for item in cart_items_with_totals)
+        cart_items = cart_items_with_totals
+
+    # Add cart info into request (optional, useful for middleware/templates)
     request.cart_count = cart_count
     request.cart_items = cart_items
     request.cart_total = cart_total
-    
-    return render(request, 'store/index.html', {'products': products})
+
+    return render(
+        request,
+        "store/index.html",
+        {"products": products, "cart_items": cart_items, "cart_total": cart_total},
+    )
+
 
 
 def logout_view(request):
@@ -158,15 +167,23 @@ def confirm_order(request):
         if not cart or cart.items.count() == 0:
             return redirect("store:index")
 
-        # Get the cart items and calculate the total price
         cart_items = cart.items.all()
         cart_total = sum(item.product.price * item.quantity for item in cart_items)
+
+        # Check stock before creating order
+        for item in cart_items:
+            if item.quantity > item.product.stock:
+                return render(
+                    request,
+                    "store/order_failed.html",
+                    {"message": f"Not enough stock for {item.product.name}"},
+                )
 
         # Create Order
         order = Order.objects.create(
             user=request.user,
             delivery_address=f"{request.POST['street']}, {request.POST['city']}, {request.POST['zipcode']}, {request.POST['country']}",
-            total_price=cart_total,  # Use the newly calculated cart_total
+            total_price=cart_total,
             COD=True
         )
 
@@ -182,7 +199,7 @@ def confirm_order(request):
             country=request.POST['country'],
         )
 
-        # Create Order Items
+        # Create Order Items + Reduce stock
         for item in cart_items:
             OrderItem.objects.create(
                 order=order,
@@ -190,12 +207,15 @@ def confirm_order(request):
                 quantity=item.quantity,
                 price=item.product.price
             )
+            # Reduce stock
+            item.product.stock -= item.quantity
+            item.product.save(update_fields=["stock"])
 
         # Clear Cart
         cart.items.all().delete()
 
         return render(request, "store/order_success.html", {"order": order})
-    
+
     return redirect("store:index")
     
 

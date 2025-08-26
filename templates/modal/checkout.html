@@ -8,7 +8,12 @@
 >
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <form method="post" action="{% url 'store:confirm_order' %}">
+      <form
+        id="checkoutForm"
+        method="post"
+        action="{% url 'store:confirm_order' %}"
+        novalidate
+      >
         {% csrf_token %}
         <div class="modal-header">
           <h5 class="modal-title" id="checkoutModalLabel">Order Summary</h5>
@@ -37,18 +42,24 @@
                 value="{{ request.user.get_full_name }}"
                 required
               />
+              <div class="invalid-feedback">Full name is required.</div>
             </div>
+
             <div class="col-md-6">
               <label for="phone" class="form-label">Phone</label>
               <input
-                type="text"
+                type="tel"
                 class="form-control"
                 name="phone"
                 id="phone"
-                value="{{ request.user.phone_number }}"
+                pattern="^[0-9]{10,15}$"
                 required
               />
+              <div class="invalid-feedback">
+                Please enter a valid phone number (10–15 digits).
+              </div>
             </div>
+
             <div class="col-md-6">
               <label for="street" class="form-label">House No / Street</label>
               <input
@@ -58,7 +69,9 @@
                 id="street"
                 required
               />
+              <div class="invalid-feedback">Street address is required.</div>
             </div>
+
             <div class="col-md-6">
               <label for="city" class="form-label">City</label>
               <input
@@ -68,11 +81,15 @@
                 id="city"
                 required
               />
+              <div class="invalid-feedback">City is required.</div>
             </div>
+
             <div class="col-md-6">
               <label for="state" class="form-label">State</label>
               <input type="text" class="form-control" name="state" id="state" />
+              <div class="invalid-feedback">Please provide a state.</div>
             </div>
+
             <div class="col-md-3">
               <label for="zipcode" class="form-label">Postcode</label>
               <input
@@ -80,9 +97,14 @@
                 class="form-control"
                 name="zipcode"
                 id="zipcode"
+                pattern="^[A-Za-z0-9\s\-]{4,10}$"
                 required
               />
+              <div class="invalid-feedback">
+                Please enter a valid postcode (4–10 characters).
+              </div>
             </div>
+
             <div class="col-md-3">
               <label for="country" class="form-label">Country</label>
               <input
@@ -93,6 +115,7 @@
                 value="UK"
                 required
               />
+              <div class="invalid-feedback">Country is required.</div>
             </div>
           </div>
         </div>
@@ -104,3 +127,19 @@
     </div>
   </div>
 </div>
+
+<!-- Validation Script -->
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const form = document.getElementById("checkoutForm");
+
+    form.addEventListener("submit", function (event) {
+      if (!form.checkValidity()) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+
+      form.classList.add("was-validated");
+    });
+  });
+</script>

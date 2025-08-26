@@ -220,116 +220,105 @@
 </style>
 
 <script>
-  // Toggle cart sidebar
-  document.querySelector(".cart-icon").addEventListener("click", () => {
-    document.getElementById("cartSidebar").classList.add("open");
-    document.getElementById("cartBackdrop").style.display = "block";
-  });
-  document.getElementById("closeCart").addEventListener("click", () => {
-    document.getElementById("cartSidebar").classList.remove("open");
-    document.getElementById("cartBackdrop").style.display = "none";
-  });
-  document
-    .getElementById("cartBackdrop")
-    .addEventListener("click", function () {
-      document.getElementById("cartSidebar").classList.remove("open");
-      this.style.display = "none";
-    });
+document.addEventListener("DOMContentLoaded", function () {
+  const cartSidebar   = document.getElementById("cartSidebar");
+  const cartBackdrop  = document.getElementById("cartBackdrop");
+  const closeCartBtn  = document.getElementById("closeCart");
+  const cartItemsWrap = document.querySelector(".cart-items");
 
-  // Function to refresh the cart UI with new data
+  // ---- Sidebar Toggle ----
+  document.querySelectorAll(".cart-icon").forEach(icon => {
+    icon.addEventListener("click", () => {
+      cartSidebar.classList.add("open");
+      cartBackdrop.style.display = "block";
+    });
+  });
+
+  closeCartBtn.addEventListener("click", () => {
+    cartSidebar.classList.remove("open");
+    cartBackdrop.style.display = "none";
+  });
+
+  cartBackdrop.addEventListener("click", () => {
+    cartSidebar.classList.remove("open");
+    cartBackdrop.style.display = "none";
+  });
+
+  // ---- Refresh Cart UI ----
   function refreshCart(data) {
     if (data.success) {
       document.getElementById("cart-count").textContent = data.cart_count;
-      document.querySelector(
-        ".cart-footer p"
-      ).textContent = `Total: £${data.cart_total}`;
-      document.querySelector(".cart-items").innerHTML = data.cart_html;
+      document.querySelector(".cart-footer p").textContent = `Total: £${data.cart_total}`;
+      cartItemsWrap.innerHTML = data.cart_html;
     }
   }
 
-  // Use event delegation for real-time updates on dynamic elements
-  document.addEventListener('DOMContentLoaded', function() {
-    const cartItemsContainer = document.querySelector(".cart-items");
+  // ---- Quantity Change ----
+  cartItemsWrap.addEventListener("change", function (e) {
+    if (e.target.classList.contains("quantity-input")) {
+      const cartItemDiv = e.target.closest(".cart-item");
+      const itemId      = cartItemDiv.dataset.itemId;
+      const newQuantity = e.target.value;
 
-    // Event listener for quantity input change
-    cartItemsContainer.addEventListener("change", function (e) {
-      if (e.target.classList.contains("quantity-input")) {
-        const cartItemDiv = e.target.closest(".cart-item");
-        const itemId = cartItemDiv.dataset.itemId;
-        const newQuantity = e.target.value;
-
-        // AJAX call to update the cart
-        fetch(`/cart/update/${itemId}/`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCookie('csrftoken')
-          },
-          body: JSON.stringify({
-            quantity: newQuantity
-          })
-        })
-        .then(response => response.json())
+      fetch(`/cart/update/${itemId}/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": getCookie("csrftoken"),
+        },
+        body: JSON.stringify({ quantity: newQuantity }),
+      })
+        .then(res => res.json())
         .then(data => {
           if (data.success) {
-            // This is the crucial part: update the UI with the new data
             refreshCart(data);
           } else {
-            alert(data.error);
-            // Revert the quantity input to the server's state
-            // This requires the view to return the current quantity on error.
+            alert(data.error || "Failed to update cart.");
           }
         })
-        .catch(error => console.error('Error updating cart:', error));
-      }
-    });
-
-    // Event listener for remove item click
-    cartItemsContainer.addEventListener('click', function(e) {
-      const removeButton = e.target.closest('.bi-trash');
-      if (removeButton) {
-        const itemId = removeButton.closest('.cart-item').dataset.itemId;
-        removeCartItem(itemId);
-      }
-    });
+        .catch(err => console.error("Error updating cart:", err));
+    }
   });
 
-  // Function to update cart item via AJAX (already included in the DOMContentLoaded listener)
-  // This function is now redundant as the logic is in the event listener above.
-  // We can safely remove it from here.
+  // ---- Remove Item ----
+  cartItemsWrap.addEventListener("click", function (e) {
+    const removeBtn = e.target.closest(".bi-trash");
+    if (removeBtn) {
+      const itemId = removeBtn.closest(".cart-item").dataset.itemId;
+      removeCartItem(itemId);
+    }
+  });
 
-  // Function to remove cart item via AJAX
   function removeCartItem(itemId) {
     fetch(`/cart/remove/${itemId}/`, {
-      method: 'POST',
-      headers: {
-        'X-CSRFToken': getCookie('csrftoken'),
-      },
+      method: "POST",
+      headers: { "X-CSRFToken": getCookie("csrftoken") },
     })
-    .then(response => response.json())
-    .then(data => {
-      if (data.success) {
-        refreshCart(data);
-      } else {
-        alert("Failed to remove item.");
-      }
-    })
-    .catch(error => console.error('Error:', error));
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          refreshCart(data);
+        } else {
+          alert("Failed to remove item.");
+        }
+      })
+      .catch(err => console.error("Error removing item:", err));
   }
-  
-  // Helper function to get CSRF token from cookies
+
+  // ---- CSRF Token Helper ----
   function getCookie(name) {
-      let cookieValue = null;
-      if (document.cookie && document.cookie !== '') {
-          const cookies = document.cookie.split(';');
-          for (let i = 0; i < cookies.length; i++) {
-              const cookie = cookies[i].trim();
-              if (cookie.startsWith(name + '=')) {
-                  cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                  break;
-              }
-          }
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== "") {
+      const cookies = document.cookie.split(";");
+      for (let cookie of cookies) {
+        cookie = cookie.trim();
+        if (cookie.startsWith(name + "=")) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
       }
-      return cookieValue;
+    }
+    return cookieValue;
   }
+});
 </script>
