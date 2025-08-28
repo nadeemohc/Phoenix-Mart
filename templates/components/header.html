@@ -8,10 +8,10 @@
 
 <nav class="navbar navbar-dark bg-dark">
   <div class="container">
-    <a class="navbar-brand fw-bold" href="{% url 'store:index' %}"
-      >Phoenix Mart</a
-    >
-
+  <a class="navbar-brand fw-bold d-flex align-items-center" href="{% url 'store:index' %}">
+    <img src="{% static 'img/logo.png' %}" alt="Logo" width="28" height="28" class="me-2" />
+    Phoenix Cart
+  </a>
     <div class="collapse navbar-collapse" id="navbarNav"></div>
 
     <ul class="navbar-nav align-items-center flex-row">
