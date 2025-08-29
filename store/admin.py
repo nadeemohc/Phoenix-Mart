@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import Category, SubCategory, Product, Cart, CartItem, Order, CustomUser, OrderItem
+from .models import Category, SubCategory, Product, Cart, CartItem, Order, CustomUser, OrderItem, Address
 
 
 class CustomUserAdmin(UserAdmin):
@@ -83,19 +83,19 @@ class OrderAdmin(admin.ModelAdmin):
     Customizes the Django admin interface for the Order model.
     """
     # 'list_display' controls which fields are shown on the change list page.
-    list_display = ['id', 'user', 'created_at', 'total_price', 'status', 'COD']
+    list_display = ['id', 'user', 'user_phone', 'created_at', 'total_price', 'status', 'COD']
     
     # 'list_filter' adds a sidebar for filtering the list.
     list_filter = ['status', 'COD', 'created_at']
+
+    list_editable = ('status',)
     
     # 'search_fields' enables a search box for these fields.
     search_fields = ['user__email', 'delivery_address']
     
     # 'inlines' is the key part that includes the OrderItemInline.
     # This displays the related OrderItems on the Order's detail page.
-    inlines = [
-        OrderItemInline,
-    ]
+    inlines = [OrderItemInline]
 
     # 'fieldsets' can be used to group fields in the detail view.
     fieldsets = (
@@ -112,11 +112,17 @@ class OrderAdmin(admin.ModelAdmin):
 
     # 'readonly_fields' prevents these fields from being edited.
     readonly_fields = ['user', 'created_at', 'updated_at', 'total_price']
+    
+    # Custom column to show user phone
+    def user_phone(self, obj):
+        return obj.address.phone or "—"
+    user_phone.short_description = "Phone"
 
 # Register the Product model as well for completeness
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ("name", "category", "subcategory", "price", "stock", "preview_image")
+    list_display = ("name", "category", "subcategory", "price", "stock", "in_stock", "preview_image")
+    list_editable = ("price", "stock", "in_stock")
     list_filter = ("category", "subcategory")
     search_fields = ("name",)
     ordering = ("name",)
@@ -127,3 +133,10 @@ class ProductAdmin(admin.ModelAdmin):
         return "No Image"
     preview_image.allow_tags = True
     preview_image.short_description = "Image"
+
+
+@admin.register(Address)
+class AddressAdmin(admin.ModelAdmin):
+    list_display = ("full_name", "order", "phone", "street", "city", "state", "zipcode", "country")
+    list_filter = ("order", "city", "full_name")
+    # search_fields = ("")

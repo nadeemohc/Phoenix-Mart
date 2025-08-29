@@ -13,7 +13,8 @@ from django.db import transaction
 
 
 def index(request):
-    products = Product.objects.all()
+    # products = Product.objects.all()
+    products = Product.objects.filter(in_stock=1)
 
     # Always initialize cart
     cart = None
