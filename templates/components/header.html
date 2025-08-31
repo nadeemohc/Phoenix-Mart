@@ -31,18 +31,18 @@
         </a>
       </li>
       {% endif %} {% if request.user.is_authenticated %}
-      <li class="nav-item me-2 d-lg-none">
+      <li class="nav-item me-4 d-lg-none">
         <a href="{% url 'store:logout' %}" class="btn btn-outline-light btn-sm">
-          <i class="bi bi-box-arrow-right"></i>
+          <i class="bi bi-box-arrow-right"></i> Logout
         </a>
       </li>
       {% else %}
-      <li class="nav-item me-2 d-lg-none">
+      <li class="nav-item me-4 d-lg-none">
         <a
           href="{% url 'social:begin' 'google-oauth2' %}"
           class="btn btn-outline-light btn-sm"
         >
-          <i class="bi bi-box-arrow-right"></i>
+          <i class="bi bi-box-arrow-right"></i> Login
         </a>
       </li>
       {% endif %}
