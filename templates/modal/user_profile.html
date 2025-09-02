@@ -1,0 +1,158 @@
+<!-- Profile Modal -->
+<div
+  class="modal fade"
+  id="profileModal"
+  tabindex="-1"
+  aria-labelledby="profileModalLabel"
+  aria-hidden="true"
+>
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="profileModalLabel">User Profile</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+          aria-label="Close"
+        ></button>
+      </div>
+      <div class="modal-body">
+        <!-- Profile Details Section -->
+        <h5 class="mb-3">Edit Profile</h5>
+        <form id="profileForm" method="post" action="{% url 'store:update_profile' %}" class="needs-validation" novalidate>
+          {% csrf_token %}
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label for="profile_full_name" class="form-label"
+                >Full Name</label
+              >
+              <input
+                type="text"
+                class="form-control"
+                id="profile_full_name"
+                name="full_name"
+                value="{{ request.user.get_full_name }}"
+                required
+              />
+              <div class="invalid-feedback">Full name is required.</div>
+            </div>
+            <div class="col-md-6">
+              <label for="profile_phone" class="form-label">Phone Number</label>
+              <input
+                type="tel"
+                class="form-control"
+                id="profile_phone"
+                name="phone_number"
+                value="{{ request.user.phone_number|default_if_none:'' }}"
+                pattern="^[0-9]{10,15}$"
+                required
+              />
+              <div class="invalid-feedback">
+                Please enter a valid phone number (10–15 digits).
+              </div>
+            </div>
+          </div>
+          <div class="mt-4 text-end">
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+          </div>
+        </form>
+
+        <hr class="my-4" />
+
+        <!-- Order History Section -->
+        <h5 class="mb-3">Order History</h5>
+        {% if request.user.orders.exists %}
+        <div class="table-responsive">
+          <table class="table table-striped table-hover">
+            <thead>
+              <tr>
+                <th scope="col">Order ID</th>
+                <th scope="col">Date</th>
+                <th scope="col">Status</th>
+                <th scope="col">Total Price</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for order in request.user.orders.all %}
+              <tr>
+                <td>{{ order.id }}</td>
+                <td>{{ order.created_at|date:"F d, Y" }}</td>
+                <td>{{ order.status|title }}</td>
+                <td>£{{ order.total_price }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="text-center text-muted">You have no orders yet.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SweetAlert Library -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const profileForm = document.getElementById("profileForm");
+
+    profileForm.addEventListener("submit", function (event) {
+      event.preventDefault(); // Prevent the default form submission (page reload)
+
+      if (!profileForm.checkValidity()) {
+        profileForm.classList.add("was-validated");
+        return; // Stop here if validation fails
+      }
+
+      // Get form data and CSRF token
+      const formData = new FormData(profileForm);
+      const csrfToken = formData.get("csrfmiddlewaretoken");
+
+      fetch(profileForm.action, {
+        method: "POST",
+        body: formData,
+        headers: {
+          "X-CSRFToken": csrfToken,
+        },
+      })
+        .then((response) => response.json())
+        .then((data) => {
+          if (data.success) {
+            Swal.fire({
+              title: "Success!",
+              text: data.message,
+              icon: "success",
+              confirmButtonText: "OK",
+            }).then(() => {
+              // Optionally close the modal after the alert
+              const profileModal = document.getElementById("profileModal");
+              const modal = bootstrap.Modal.getInstance(profileModal);
+              if (modal) {
+                modal.hide();
+              }
+            });
+          } else {
+            Swal.fire({
+              title: "Error!",
+              text: data.message,
+              icon: "error",
+              confirmButtonText: "OK",
+            });
+          }
+        })
+        .catch((error) => {
+          console.error("Error:", error);
+          Swal.fire({
+            title: "Error!",
+            text: "An unexpected error occurred.",
+            icon: "error",
+            confirmButtonText: "OK",
+          });
+        });
+    });
+  });
+</script>

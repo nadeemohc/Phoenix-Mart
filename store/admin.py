@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
+from django.db import transaction
 from .models import Category, SubCategory, Product, Cart, CartItem, Order, CustomUser, OrderItem, Address
-
 
 class CustomUserAdmin(UserAdmin):
     list_display = ('email', 'first_name', 'last_name', 'is_staff', 'is_active')
@@ -64,7 +64,6 @@ class CartItemAdmin(admin.ModelAdmin):
     list_display = ("cart", "product", "quantity")
 
 
-# Create the inline class for OrderItem
 class OrderItemInline(admin.TabularInline):
     """
     Defines the inline representation of OrderItem for the Django admin.
@@ -111,13 +110,32 @@ class OrderAdmin(admin.ModelAdmin):
     )
 
     # 'readonly_fields' prevents these fields from being edited.
-    readonly_fields = ['user', 'created_at', 'updated_at', 'total_price']
+    readonly_fields = ['user', 'created_at', 'updated_at', 'total_price', 'COD']
     
     # Custom column to show user phone
     def user_phone(self, obj):
         return obj.address.phone or "—"
     user_phone.short_description = "Phone"
 
+    def save_model(self, request, obj, form, change):
+        """
+        Overrides the save behavior to manage stock when an order is cancelled.
+        """
+        # Get the original object from the database before the form changes are saved
+        if change:
+            original_obj = Order.objects.get(pk=obj.pk)
+
+            # Check if the status has been changed to 'cancelled'
+            if original_obj.status != 'cancelled' and obj.status == 'cancelled':
+                with transaction.atomic():
+                    # Return items to stock
+                    for item in obj.items.all():
+                        product = item.product
+                        product.stock += item.quantity
+                        product.save(update_fields=['stock'])
+                        
+        # Save the Order object after handling the stock
+        super().save_model(request, obj, form, change)
 # Register the Product model as well for completeness
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
