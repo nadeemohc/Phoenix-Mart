@@ -269,7 +269,22 @@ def get_cart_summary(request):
         'summary_html': summary_html
     })
 
-    
+@require_POST
+@login_required
+def update_profile(request):
+    try:
+        full_name = request.POST.get('full_name')
+        phone_number = request.POST.get('phone_number')
+
+        request.user.first_name = full_name.split(' ')[0]
+        request.user.last_name = ' '.join(full_name.split(' ')[1:])
+        request.user.phone_number = phone_number
+        request.user.save()
+
+        return JsonResponse({'success': True, 'message': 'Profile updated successfully.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
 
 # @login_required
 # @transaction.atomic
