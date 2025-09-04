@@ -39,6 +39,14 @@
       font-size: 0.8em !important;
     }
   }
+
+  .swal2-toast .swal2-close {
+    position: absolute !important;
+    top: 5px !important;
+    right: 5px !important;
+    transform: none !important;
+  }
+
 </style>
 
 <div
@@ -191,7 +199,9 @@
           .then(data => {
               if (data.success) {
                   // Update cart count in the navbar
-                  document.getElementById('cart-count').textContent = data.cart_count;
+                  document.querySelectorAll('#cart-count, .cart-count').forEach(el => {
+                      el.textContent = data.cart_count;
+                  });
 
                   // Update the cart total
                   document.querySelector('.cart-footer p').textContent = `Total: £${data.cart_total}`;
@@ -207,6 +217,7 @@
                       toast: true,
                       position: 'top-end',
                       showConfirmButton: false,
+                      showCloseButton: true,
                       timer: 3000
                   });
 
@@ -218,7 +229,8 @@
                       text: 'Please try again.',
                       toast: true,
                       position: 'top-end',
-                      showConfirmButton: false,
+                      showConfirmButton: true,
+                      showCloseButton: true,
                       timer: 3000
                   });
               }
@@ -232,6 +244,7 @@
                   toast: true,
                   position: 'top-end',
                   showConfirmButton: false,
+                  showCloseButton: true,
                   timer: 3000
               });
           });
