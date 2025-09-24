@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'store.apps.StoreConfig',
     'cart',
+    'order',
     'sweetify',
     'users',
     'social_django',

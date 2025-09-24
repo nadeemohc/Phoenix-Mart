@@ -12,25 +12,23 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='Cart',
+            name='Order',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('session_key', models.CharField(blank=True, max_length=40, null=True)),
+                ('delivery_address', models.TextField()),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
-                ('is_guest', models.BooleanField(default=False)),
+                ('total_price', models.DecimalField(decimal_places=2, max_digits=10)),
+                ('status', models.CharField(choices=[('pending', 'Pending'), ('processing', 'Processing'), ('shipped', 'Shipped'), ('delivered', 'Delivered'), ('cancelled', 'Cancelled')], default='pending', max_length=20)),
+                ('COD', models.BooleanField(default=True)),
             ],
-            options={
-                'verbose_name': 'Cart',
-                'verbose_name_plural': 'Carts',
-            },
         ),
         migrations.CreateModel(
-            name='CartItem',
+            name='OrderItem',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('quantity', models.PositiveIntegerField(default=1)),
-                ('added_at', models.DateTimeField(auto_now_add=True)),
+                ('price', models.DecimalField(decimal_places=2, max_digits=10)),
             ],
         ),
     ]

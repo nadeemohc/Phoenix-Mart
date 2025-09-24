@@ -1,10 +1,10 @@
 from django.db import models
-from django.conf import settings  # ✅ use this for the user model
+from django.conf import settings
 
 
 class Cart(models.Model):
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,   # ✅ safer than importing get_user_model()
+        settings.AUTH_USER_MODEL,   
         on_delete=models.CASCADE,
         null=True,
         blank=True,
