@@ -1,7 +1,8 @@
+from django.utils.safestring import mark_safe
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.db import transaction
-from .models import Category, SubCategory, Product, Cart, CartItem, Order, CustomUser, OrderItem, Address
+from .models import Category, SubCategory, Product, Order, CustomUser, OrderItem, Address
 
 class CustomUserAdmin(UserAdmin):
     list_display = ('email', 'first_name', 'last_name', 'is_staff', 'is_active')
@@ -46,22 +47,6 @@ class SubCategoryAdmin(admin.ModelAdmin):
     list_display = ("name", "category", "slug")
     prepopulated_fields = {"slug": ("name",)}
     list_filter = ("category",)
-
-
-class CartItemInline(admin.TabularInline):
-    model = CartItem
-    extra = 1
-
-
-@admin.register(Cart)
-class CartAdmin(admin.ModelAdmin):
-    list_display = ("id", "user", "session_key", "created_at")
-    inlines = [CartItemInline]
-
-
-@admin.register(CartItem)
-class CartItemAdmin(admin.ModelAdmin):
-    list_display = ("cart", "product", "quantity")
 
 
 class OrderItemInline(admin.TabularInline):
@@ -147,9 +132,9 @@ class ProductAdmin(admin.ModelAdmin):
 
     def preview_image(self, obj):
         if obj.image:
-            return f'<img src="{obj.image.url}" width="50" height="50" style="object-fit:cover;" />'
+            return mark_safe(f'<img src="{obj.image.url}" width="50" height="50" style="object-fit:cover;" />')
         return "No Image"
-    preview_image.allow_tags = True
+    
     preview_image.short_description = "Image"
 
 

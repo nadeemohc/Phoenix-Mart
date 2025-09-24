@@ -90,7 +90,7 @@
 
           <form 
             method="POST" 
-            action="{% url 'store:add_to_cart' product.id %}" 
+            action="{% url 'cart:add_to_cart' product.id %}" 
             class="d-flex flex-column mt-auto"
           >
             {% csrf_token %}

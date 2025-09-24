@@ -60,7 +60,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   if (checkoutModal) {
     checkoutModal.addEventListener("show.bs.modal", function () {
-      fetch("{% url 'store:get_cart_summary' %}", {
+      fetch("{% url 'cart:get_cart_summary' %}", {
         headers: { "X-Requested-With": "XMLHttpRequest" }
       })
         .then(res => res.json())

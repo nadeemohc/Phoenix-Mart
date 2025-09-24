@@ -107,7 +107,13 @@
 <div id="cartSidebar" class="cart-sidebar">
   <div class="cart-header">
     <h5>Your Cart</h5>
-    <span class="close-btn" id="closeCart">&times;</span>
+    <!-- <span class="close-btn" id="closeCart">&times;</span> -->
+    <button id="closeCart" class="close-btn" aria-label="Close cart">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+    </button>
   </div>
   <div class="cart-items">
     {% if request.cart_items %} {% for item in request.cart_items %}
@@ -155,7 +161,7 @@
 <div id="cartBackdrop" class="cart-backdrop"></div>
 
 <style>
-  /* Cart Icon Styles */
+    /* Cart Icon Styles */
   .nav-link.cart-icon {
     position: relative;
     display: flex;
@@ -172,6 +178,24 @@
   }
 
   /* Cart Sidebar */
+  .close-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #555; /* subtle grey */
+      padding: 4px;
+      border-radius: 50%;
+      transition: background 0.2s ease, color 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+  }
+
+  .close-btn:hover {
+      background: #f0f0f0;
+      color: #e60023; /* red accent */
+  }
+
   .cart-sidebar {
     position: fixed;
     top: 0;
@@ -272,7 +296,10 @@ document.addEventListener("DOMContentLoaded", function () {
   function refreshCart(data) {
     if (data.success) {
       document.getElementById("cart-count").textContent = data.cart_count;
-      document.querySelector(".cart-footer p").textContent = `Total: £${data.cart_total}`;
+      const footerTotal = document.querySelector(".cart-footer p");
+      if (footerTotal) {
+        footerTotal.textContent = `Total: £${data.cart_total}`;
+      }
       cartItemsWrap.innerHTML = data.cart_html;
     }
   }
@@ -306,12 +333,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // ---- Remove Item ----
   cartItemsWrap.addEventListener("click", function (e) {
-    const removeBtn = e.target.closest(".bi-trash");
+    const removeBtn = e.target.closest(".remove-item");
     if (removeBtn) {
       const itemId = removeBtn.closest(".cart-item").dataset.itemId;
       removeCartItem(itemId);
     }
   });
+
 
   function removeCartItem(itemId) {
     fetch(`/cart/remove/${itemId}/`, {

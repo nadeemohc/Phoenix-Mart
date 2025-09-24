@@ -1,7 +1,7 @@
 from django.db.models.signals import post_save
 from django.contrib.auth.signals import user_logged_in
 from django.dispatch import receiver
-from .models import Cart, CartItem
+from cart.models import Cart, CartItem
 
 @receiver(user_logged_in)
 def merge_carts(sender, request, user, **kwargs):

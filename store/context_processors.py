@@ -1,5 +1,5 @@
 # in store/context_processors.py
-from .models import Cart, CartItem
+from cart.models import Cart, CartItem
 
 def cart_context(request):
     cart_count = 0
