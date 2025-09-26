@@ -8,20 +8,45 @@
     </tr>
   </thead>
   <tbody>
-    {% for item in cart_items %}
-    <tr>
-      <td>{{ item.product.name }}</td>
-      <td>{{ item.quantity }}</td>
-      <td>£{{ item.product.price|floatformat:2 }}</td>
-      <td>£{{ item.line_total|floatformat:2 }}</td>
-    </tr>
-    {% endfor %}
+    {% if is_buy_now %}
+      <tr>
+        <td>{{ cart_items.0.product.name }}</td>
+        <td>
+          <input type="number"
+                 min="1"
+                 name="quantity"
+                 value="{{ cart_items.0.quantity }}"
+                 class="form-control form-control-sm checkout-quantity-input buy-now-input"
+                 style="width: 70px;">
+        </td>
+        <td>£{{ cart_items.0.product.price|floatformat:2 }}</td>
+        <td class="item-line-total">£{{ cart_items.0.line_total|floatformat:2 }}</td>
+      </tr>
+    {% else %}
+      {% for item in cart_items %}
+      <tr>
+        <td>{{ item.product.name }}</td>
+        <td>
+          <input 
+            type="number" 
+            min="1" 
+            value="{{ item.quantity }}" 
+            class="form-control form-control-sm checkout-quantity-input" 
+            data-item-id="{{ item.id }}"
+            style="width: 70px;"
+          />
+        </td>
+        <td>£{{ item.product.price|floatformat:2 }}</td>
+        <td class="item-line-total">£{{ item.line_total|floatformat:2 }}</td>
+      </tr>
+      {% endfor %}
+    {% endif %}
   </tbody>
   <tfoot>
     <tr>
       <td colspan="3" class="text-end"><strong>Total</strong></td>
       <td>
-        <strong>£{{ cart_total|floatformat:2 }}</strong>
+        <strong id="checkoutTotal">£{{ cart_total|floatformat:2 }}</strong>
       </td>
     </tr>
   </tfoot>

@@ -7,14 +7,13 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <style>
-  /* Base styles for the product cards */
+  /* Your existing CSS styles */
   .card-img-top {
     width: 100%;
     padding-bottom: 56.25%;
     position: relative;
     overflow: hidden;
   }
-
   .card-img-top img {
     position: absolute;
     top: 0;
@@ -23,30 +22,24 @@
     height: 100%;
     object-fit: cover;
   }
-  
-  /* Media query to make the SweetAlert modal smaller on mobile */
   @media (max-width: 768px) {
     .swal2-popup {
       font-size: 0.8em !important;
       width: 85% !important;
     }
-
     .swal2-title {
       font-size: 1.5em !important;
     }
-
     .swal2-actions {
       font-size: 0.8em !important;
     }
   }
-
   .swal2-toast .swal2-close {
     position: absolute !important;
     top: 5px !important;
     right: 5px !important;
     transform: none !important;
   }
-
 </style>
 
 <div
@@ -94,9 +87,7 @@
             class="d-flex flex-column mt-auto"
           >
             {% csrf_token %}
-            <div
-              class="d-flex justify-content-center align-items-center mb-2"
-            >
+            <div class="d-flex justify-content-center align-items-center mb-2">
               <h6 class="fw-bold mb-0 me-2">£{{ product.price }}</h6>
               <input
                 type="number"
@@ -107,14 +98,23 @@
                 style="max-width: 80px"
               />
             </div>
+            <div class="d-flex justify-content-between">
+                <button 
+                    type="submit" 
+                    class="btn btn-dark w-50 add-to-cart-btn" 
+                    data-product-id="{{ product.id }}"
+                >
+                    Add to Cart
+                </button>
 
-            <button 
-                type="submit" 
-                class="btn btn-dark w-100 add-to-cart-btn" 
-                data-product-id="{{ product.id }}"
-            >
-                Add to Cart
-            </button>
+                <button 
+                  type="button" 
+                  class="btn btn-warning w-50 buy-now-btn ms-2" 
+                  data-product-id="{{ product.id }}"
+                >
+                  Buy Now
+                </button>
+            </div>
           </form>
         </div>
       </div>
@@ -124,143 +124,279 @@
 </div>
 
 <script>
-  document.addEventListener('DOMContentLoaded', function() {
-      const addToCartButtons = document.querySelectorAll('.add-to-cart-btn');
-      const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
-      let currentForm = null;
+    document.addEventListener('DOMContentLoaded', function() {
+        // Constants for all elements
+        const buyNowButtons = document.querySelectorAll('.buy-now-btn');
+        const addToCartButtons = document.querySelectorAll('.add-to-cart-btn');
+        const checkoutModal = new bootstrap.Modal(document.getElementById('checkoutModal'));
+        const checkoutForm = document.getElementById('checkoutForm');
+        const checkoutSummary = document.getElementById('checkoutSummary');
+        const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
+        
+        // Cart Sidebar elements
+        const cartSidebar = document.getElementById("cartSidebar");
+        const cartBackdrop = document.getElementById("cartBackdrop");
+        const closeCartBtn = document.getElementById("closeCart");
+        const cartItemsWrap = document.querySelector(".cart-items");
+        const cartIcons = document.querySelectorAll(".cart-icon");
+        const sidebarCheckoutBtn = document.getElementById("sidebarCheckoutBtn");
 
-      addToCartButtons.forEach(button => {
-          button.addEventListener('click', function(e) {
-              e.preventDefault();
-              currentForm = this.closest('form');
+        // CSRF helper function
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== "") {
+                const cookies = document.cookie.split(";");
+                for (let cookie of cookies) {
+                    cookie = cookie.trim();
+                    if (cookie.startsWith(name + "=")) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
 
-              // Check if user is authenticated
-              const isAuthenticated = {{ request.user.is_authenticated|yesno:"true,false" }};
+        // ---- Refresh Cart UI ----
+        function refreshCart(data) {
+          if (data.success) {
+            document.getElementById("cart-count").textContent = data.cart_count;
+            const footerTotal = document.querySelector(".cart-footer p");
+            if (footerTotal) {
+              footerTotal.textContent = `Total: £${data.cart_total}`;
+            }
+            // Temporarily disable listeners to avoid duplicates
+            // We use a different approach now, attaching them after the change
+            cartItemsWrap.innerHTML = data.cart_html;
+            attachSidebarListeners(); // Re-attach listeners after content update
+          }
+        }
+        
+        // ---- Handle Quantity Updates in Checkout Modal ----
+        function attachQuantityListeners() {
+            const qtyInputs = checkoutSummary.querySelectorAll('.checkout-quantity-input');
+            qtyInputs.forEach(input => {
+                input.addEventListener('change', function() {
+                    const itemId = this.dataset.itemId;
+                    const newQty = parseInt(this.value);
+                    const isBuyNow = this.classList.contains('buy-now-input');
 
-              if (isAuthenticated) {
-                  submitAddToCartForm(currentForm);
-              } else {
-                  loginModal.show();
-              }
-          });
-      });
+                    if (isBuyNow) {
+                        const lineTotalCell = this.closest('tr').querySelector('.item-line-total');
+                        const unitPriceCell = this.closest('tr').querySelector('td:nth-child(3)');
+                        const unitPrice = parseFloat(unitPriceCell.textContent.replace('£', ''));
+                        const newTotal = (unitPrice * newQty).toFixed(2);
+                        lineTotalCell.textContent = '£' + newTotal;
+                        
+                        document.getElementById('checkoutTotal').textContent = '£' + newTotal;
+                    } else {
+                        fetch(`/cart/update/${itemId}/`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': getCookie('csrftoken')
+                            },
+                            body: JSON.stringify({ quantity: newQty })
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.success) {
+                                fetch(`/cart/summary/`)
+                                    .then(res => res.json())
+                                    .then(summary => {
+                                        if (summary.success) {
+                                            checkoutSummary.innerHTML = summary.summary_html;
+                                            attachQuantityListeners();
+                                        }
+                                    });
+                            }
+                        });
+                    }
+                });
+            });
+        }
 
-      // Handle login form submission
-      document.getElementById('loginForm').addEventListener('submit', function(e) {
-          e.preventDefault();
+        // ---- Buy Now Button Click ----
+        buyNowButtons.forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                const isAuthenticated = {{ request.user.is_authenticated|yesno:"true,false" }};
+                if (!isAuthenticated) {
+                    loginModal.show();
+                    return;
+                }
+                const form = this.closest('form');
+                const quantity = form.querySelector('input[name="quantity"]').value;
+                const productId = this.dataset.productId;
+                
+                // Corrected line: Use the URL name with the hyphen
+                checkoutForm.action = `{% url 'order:confirm_order' %}?buy_now=${productId}`;
 
-          fetch(this.action, {
-              method: 'POST',
-              body: new FormData(this),
-              headers: {
-                  'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-              }
-          })
-          .then(response => response.json())
-          .then(data => {
-              if (data.success) {
-                  loginModal.hide();
-                  submitAddToCartForm(currentForm);
-              } else {
-                  Swal.fire({
-                      icon: 'error',
-                      title: 'Login Failed',
-                      text: data.message || 'Please try again.',
-                      toast: true,
-                      position: 'top-end',
-                      showConfirmButton: false,
-                      timer: 3000
-                  });
-              }
-          })
-          .catch(error => {
-              console.error('Error:', error);
-              Swal.fire({
-                  icon: 'error',
-                  title: 'An error occurred',
-                  text: 'Please try again.',
-                  toast: true,
-                  position: 'top-end',
-                  showConfirmButton: false,
-                  timer: 3000
-              });
-          });
-      });
+                fetch(`/buy-now/${productId}/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({ quantity: quantity })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        checkoutSummary.innerHTML = data.summary_html;
+                        checkoutModal.show();
+                        attachQuantityListeners();
+                    } else {
+                        Swal.fire('Error', data.message || 'Unable to start Buy Now.', 'error');
+                    }
+                })
+                .catch(err => console.error('Buy Now error:', err));
+            });
+        });
 
-      function submitAddToCartForm(form) {
-          fetch(form.action, {
-              method: 'POST',
-              body: new FormData(form),
-              headers: {
-                  'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-              }
-          })
-          .then(response => response.json())
-          .then(data => {
-              if (data.success) {
-                  // Update cart count in the navbar
-                  document.querySelectorAll('#cart-count, .cart-count').forEach(el => {
-                      el.textContent = data.cart_count;
-                  });
+        // ---- Add to Cart Button Click ----
+        addToCartButtons.forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                const isAuthenticated = {{ request.user.is_authenticated|yesno:"true,false" }};
+                if (!isAuthenticated) {
+                    loginModal.show();
+                    return;
+                }
+                const form = this.closest('form');
+                const quantity = form.querySelector('input[name="quantity"]').value;
+                const productId = this.dataset.productId;
 
-                  // Update the cart total
-                  document.querySelector('.cart-footer p').textContent = `Total: £${data.cart_total}`;
+                fetch(form.action, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({ quantity: quantity })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Added to cart!',
+                            text: 'Your product has been added successfully.',
+                            toast: true,
+                            position: 'top-end',
+                            showConfirmButton: false,
+                            showCloseButton: true,
+                            timer: 3000
+                        });
+                        refreshCart(data);
+                    } else {
+                        Swal.fire('Error', data.message || 'Unable to add to cart.', 'error');
+                    }
+                })
+                .catch(err => console.error('Add to Cart error:', err));
+            });
+        });
 
-                  // Update the cart items content with the new HTML from the server
-                  document.querySelector('.cart-items').innerHTML = data.cart_html;
+        // ---- Cart Sidebar Listeners (all in one place) ----
+        // This function attaches all event listeners related to the sidebar
+        // so we can call it after updating the HTML content.
+        function attachSidebarListeners() {
+            // Remove previous listeners to prevent duplicates
+            cartItemsWrap.removeEventListener("change", handleQuantityChange);
+            cartItemsWrap.removeEventListener("click", handleRemoveItem);
 
-                  // Show success message using SweetAlert
-                  Swal.fire({
-                      icon: 'success',
-                      title: 'Added to cart!',
-                      text: 'Your product has been added successfully.',
-                      toast: true,
-                      position: 'top-end',
-                      showConfirmButton: false,
-                      showCloseButton: true,
-                      timer: 3000
-                  });
+            // ---- Quantity Change in sidebar ----
+            cartItemsWrap.addEventListener("change", handleQuantityChange);
 
-              } else {
-                  // Show error message using SweetAlert
-                  Swal.fire({
-                      icon: 'error',
-                      title: 'Failed to add',
-                      text: 'Please try again.',
-                      toast: true,
-                      position: 'top-end',
-                      showConfirmButton: true,
-                      showCloseButton: true,
-                      timer: 3000
-                  });
-              }
-          })
-          .catch(error => {
-              console.error('Error:', error);
-              Swal.fire({
-                  icon: 'error',
-                  title: 'An error occurred',
-                  text: 'Please try again.',
-                  toast: true,
-                  position: 'top-end',
-                  showConfirmButton: false,
-                  showCloseButton: true,
-                  timer: 3000
-              });
-          });
-      }
-  });
+            // ---- Remove Item in sidebar ----
+            cartItemsWrap.addEventListener("click", handleRemoveItem);
 
-  function googleLoginPopup() {
-      const width = 500, height = 600;
-      const left = (screen.width / 2) - (width / 2);
-      const top = (screen.height / 2) - (height / 2);
+            function handleQuantityChange(e) {
+                if (e.target.classList.contains("quantity-input")) {
+                    const cartItemDiv = e.target.closest(".cart-item");
+                    const itemId = cartItemDiv.dataset.itemId;
+                    const newQuantity = e.target.value;
 
-      window.open(
-          "{% url 'social:begin' 'google-oauth2' %}",
-          "GoogleLogin",
-          `width=${width},height=${height},top=${top},left=${left}`
-      );
-  }
+                    fetch(`/cart/update/${itemId}/`, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "X-CSRFToken": getCookie("csrftoken"),
+                        },
+                        body: JSON.stringify({ quantity: newQuantity }),
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            refreshCart(data);
+                        } else {
+                            alert(data.error || "Failed to update cart.");
+                        }
+                    })
+                    .catch(err => console.error("Error updating cart:", err));
+                }
+            }
+
+            function handleRemoveItem(e) {
+                const removeBtn = e.target.closest(".remove-item");
+                if (removeBtn) {
+                    const itemId = removeBtn.closest(".cart-item").dataset.itemId;
+                    fetch(`/cart/remove/${itemId}/`, {
+                        method: "POST",
+                        headers: { "X-CSRFToken": getCookie("csrftoken") },
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            refreshCart(data);
+                        } else {
+                            alert("Failed to remove item.");
+                        }
+                    })
+                    .catch(err => console.error("Error removing item:", err));
+                }
+            }
+        }
+        
+        // Initial call to attach listeners to the sidebar content
+        attachSidebarListeners();
+
+        // ---- Sidebar Toggle Listeners ----
+        cartIcons.forEach(icon => {
+            icon.addEventListener("click", () => {
+                cartSidebar.classList.add("open");
+                cartBackdrop.style.display = "block";
+            });
+        });
+        closeCartBtn.addEventListener("click", () => {
+            cartSidebar.classList.remove("open");
+            cartBackdrop.style.display = "none";
+        });
+        cartBackdrop.addEventListener("click", () => {
+            cartSidebar.classList.remove("open");
+            cartBackdrop.style.display = "none";
+        });
+
+        // ---- Checkout Button in Sidebar Click ----
+        if (sidebarCheckoutBtn) {
+            sidebarCheckoutBtn.addEventListener('click', function() {
+                // Close the sidebar first
+                cartSidebar.classList.remove("open");
+                cartBackdrop.style.display = "none";
+
+                checkoutForm.action = "{% url 'order:confirm_order' %}";
+                fetch('/cart/summary/')
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            checkoutSummary.innerHTML = data.summary_html;
+                            checkoutModal.show();
+                            attachQuantityListeners();
+                        }
+                    })
+                    .catch(err => console.error('Error fetching cart summary:', err));
+            });
+        }
+    });
 </script>
 {% endblock %}

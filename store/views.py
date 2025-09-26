@@ -87,3 +87,50 @@ def update_profile(request):
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)})
 
+
+
+def buy_now(request, product_id):
+    if request.method == "POST":
+        try:
+            quantity = int(request.POST.get("quantity", 1))
+        except (ValueError, TypeError):
+            return JsonResponse({"success": False, "message": "Invalid quantity."}, status=400)
+            
+        product = get_object_or_404(Product, id=product_id)
+        print(f'product = {product}')
+
+        # Store the Buy Now item data in the session
+        # This is a temporary "cart" for the checkout process
+        request.session['buy_now_item'] = {
+            'product_id': product.id,
+            'name': product.name,
+            'quantity': quantity,
+            'price': float(product.price),
+            'line_total': float(product.price * quantity)
+        }
+        
+        # This part remains the same to render the summary for the modal
+        temp_item = {
+            "product": product,
+            "quantity": quantity,
+            "line_total": product.price * quantity,
+        }
+        print(f'temp_item = {temp_item}')
+
+        summary_html = render_to_string(
+            "store/partials/checkout_summary.html",
+            {
+                "cart_items": [temp_item],
+                "cart_total": temp_item["line_total"],
+                "is_buy_now": True,
+            },
+            request=request,
+        )
+        print(f'summary_html{summary_html}')
+
+        return JsonResponse({
+            "success": True,
+            "summary_html": summary_html,
+        })
+
+    return JsonResponse({"success": False, "message": "Invalid request"}, status=400)
