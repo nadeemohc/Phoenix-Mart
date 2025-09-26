@@ -7,6 +7,41 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <style>
+  .col-6.col-sm-6.col-md-4.col-lg-3 .product-actions {
+      /* This ensures the row takes the full width of the card body */
+      max-width: 100%; 
+  }
+
+  @media (max-width: 575.98px) {
+      /* The .col-12 class ensures they take the full width, 
+         and the g-2 (gutter) class adds vertical space automatically. */
+      .col-6.col-sm-6.col-md-4.col-lg-3 .product-actions .col-12 {
+          /* Optional: Add a small top margin to the second button if needed, 
+             but Bootstrap's g-2 row gutter should handle spacing */
+      }
+      
+      /* Enhance the visibility of the buttons (optional) */
+      .add-to-cart-btn {
+          font-size: 0.95rem;
+          padding: 0.5rem 0.25rem;
+      }
+      .buy-now-btn {
+          font-size: 0.95rem;
+          padding: 0.5rem 0.25rem;
+      }
+  }
+
+  /* Ensure the buttons are side-by-side on larger screens where space permits */
+  @media (min-width: 576px) {
+      /* On screens >= sm, the .col-sm-6 classes will place them side-by-side */
+      .product-actions .col-sm-6:first-child {
+          padding-right: 0.25rem !important; /* Adjust spacing between buttons */
+      }
+      .product-actions .col-sm-6:last-child {
+          padding-left: 0.25rem !important; /* Adjust spacing between buttons */
+      }
+  }
+  
   /* Your existing CSS styles */
   .card-img-top {
     width: 100%;
@@ -106,22 +141,25 @@
                   style="max-width: 80px"
                 />
               </div>
-              <div class="d-flex justify-content-between">
-                  <button 
-                      type="submit" 
-                      class="btn btn-dark w-50 add-to-cart-btn" 
-                      data-product-id="{{ product.id }}"
-                  >
-                      Add to Cart
-                  </button>
-
-                  <button 
-                    type="button" 
-                    class="btn btn-warning w-50 buy-now-btn ms-2" 
-                    data-product-id="{{ product.id }}"
-                  >
-                    Buy Now
-                  </button>
+              <div class="row g-2 product-actions w-100 mx-auto">
+                  <div class="col-12 col-sm-6">
+                      <button 
+                          type="submit" 
+                          class="btn btn-dark w-100 add-to-cart-btn" 
+                          data-product-id="{{ product.id }}"
+                      >
+                          Add to Cart
+                      </button>
+                  </div>
+                  <div class="col-12 col-sm-6">
+                      <button 
+                        type="button" 
+                        class="btn btn-warning w-100 buy-now-btn" 
+                        data-product-id="{{ product.id }}"
+                      >
+                        Buy Now
+                      </button>
+                  </div>
               </div>
             </form>
           </div>
