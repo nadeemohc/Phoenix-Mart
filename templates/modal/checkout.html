@@ -1,4 +1,3 @@
-<!-- Checkout Modal -->
 <div
   class="modal fade"
   id="checkoutModal"
@@ -11,7 +10,6 @@
       <form
         id="checkoutForm"
         method="post"
-        action="{% url 'order:confirm_order' %}"
         novalidate
       >
         {% csrf_token %}
@@ -26,10 +24,8 @@
         </div>
 
         <div class="modal-body">
-          <!-- Order Items Table -->
           <div id="checkoutSummary"></div>
 
-          <!-- Address Details -->
           <h5 class="mt-4">Delivery Address</h5>
           <div class="row g-3">
             <div class="col-md-6">
@@ -91,12 +87,12 @@
             </div>
 
             <div class="col-md-3">
-              <label for="zipcode" class="form-label">Postcode</label>
+              <label for="postcode" class="form-label">Postcode</label>
               <input
                 type="text"
                 class="form-control"
-                name="zipcode"
-                id="zipcode"
+                name="postcode"
+                id="postcode"
                 pattern="^[A-Za-z0-9\s\-]{4,10}$"
                 required
               />
@@ -128,18 +124,86 @@
   </div>
 </div>
 
-<!-- Validation Script -->
 <script>
-  document.addEventListener("DOMContentLoaded", function () {
-    const form = document.getElementById("checkoutForm");
+document.addEventListener("DOMContentLoaded", function () {
+    const checkoutSummary = document.getElementById("checkoutSummary");
+    const checkoutForm = document.getElementById("checkoutForm");
 
-    form.addEventListener("submit", function (event) {
-      if (!form.checkValidity()) {
-        event.preventDefault();
-        event.stopPropagation();
-      }
+    // --- 1. Cart/Quantity Update Listener ---
+    checkoutSummary.addEventListener("change", function (e) {
+        const input = e.target;
 
-      form.classList.add("was-validated");
+        if (input.classList.contains("checkout-quantity-input")) {
+            const newQuantity = parseInt(input.value);
+
+            // Check if this is a Buy Now item (no data-item-id means it's Buy Now)
+            if (input.classList.contains("buy-now-input")) {
+                
+                // Get the row elements
+                const row = input.closest('tr');
+                const unitPriceElement = row.querySelector('td:nth-child(3)');
+                const lineTotalElement = row.querySelector('.item-line-total');
+                const totalElement = document.getElementById('checkoutTotal');
+
+                // Extract unit price (e.g., "£10.00")
+                const unitPriceString = unitPriceElement.textContent.replace('£', '');
+                const unitPrice = parseFloat(unitPriceString);
+
+                // Calculate new line total
+                const newLineTotal = newQuantity * unitPrice;
+                
+                // Update the visible total
+                lineTotalElement.textContent = '£' + newLineTotal.toFixed(2);
+                totalElement.textContent = '£' + newLineTotal.toFixed(2);
+                
+                // Note: The form will now submit this quantity thanks to the HTML fix.
+                
+            } else {
+                // Existing logic for regular cart items (requires server roundtrip)
+                const itemId = input.dataset.itemId;
+                
+                fetch(`/cart/update/${itemId}/`, {
+                    method: "POST",
+                    // ... (rest of cart AJAX update logic) ...
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        // 1. Update checkout summary
+                        // This usually fetches a new summary HTML, so no complex JS needed here
+                        fetch(`/cart/summary/`) 
+                          .then(res => res.json())
+                          .then(summary => {
+                            if (summary.success) {
+                              checkoutSummary.innerHTML = summary.summary_html;
+                            }
+                        });
+
+                        // 2. Update cart sidebar
+                        if (typeof refreshCart === "function") {
+                            refreshCart(data);
+                        }
+                    }
+                })
+                .catch(err => console.error("Checkout update error:", err));
+            }
+        }
     });
-  });
+
+  // ---- CSRF helper ----
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== "") {
+      const cookies = document.cookie.split(";");
+      for (let cookie of cookies) {
+        cookie = cookie.trim();
+        if (cookie.startsWith(name + "=")) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+});
 </script>
