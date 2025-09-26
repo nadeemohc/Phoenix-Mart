@@ -6,7 +6,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.views.generic.edit import CreateView
 from django.urls import reverse_lazy
-from store.models import Product, CustomUser, Address
+from store.models import Product, CustomUser, Address, Category
 from cart.models import Cart, CartItem
 from .forms import CustomAuthenticationForm, CustomUserCreationForm
 from django.template.loader import render_to_string
@@ -14,16 +14,35 @@ from django.contrib.auth.decorators import login_required
 from django.db import transaction
 
 
-def index(request):
-    products = Product.objects.filter(in_stock=1).select_related('category', 'subcategory')
+# store/views.py
 
+# ... (Existing imports) ...
+from store.models import Product, CustomUser, Address, Category # Make sure to import Category
+# ... (Other imports) ...
+
+def index(request):
+    # --- 1. Fetch Categories and Prefetch Products (FIXED) ---
+    
+    categories = Category.objects.filter(
+        # FIX 1: Change 'product__in_stock' to 'products__in_stock'
+        products__in_stock=1
+    ).prefetch_related(
+        models.Prefetch(
+            # FIX 2: Change 'product_set' to 'products'
+            'products', 
+            queryset=Product.objects.filter(in_stock=1).order_by('name')
+        )
+    ).distinct()
+
+    # --- 2. Cart Logic (Remains the same) ---
+    # ... (Your existing cart logic) ...
+    
     cart = None
     cart_count = 0
     cart_total = 0
 
     if request.user.is_authenticated and not getattr(request.user, "is_guest", False):
         try:
-            # Use select_related to pre-fetch product data for cart items
             cart = Cart.objects.prefetch_related(
                 models.Prefetch('items', queryset=CartItem.objects.select_related('product'))
             ).get(user=request.user)
@@ -58,10 +77,11 @@ def index(request):
     request.cart_items = cart_items
     request.cart_total = cart_total
 
+    # --- 3. Update Context ---
     return render(
         request,
         "store/index.html",
-        {"products": products, "cart_items": cart_items, "cart_total": cart_total},
+        {"categories": categories, "cart_items": cart_items, "cart_total": cart_total},
     )
 
 
