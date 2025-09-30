@@ -105,10 +105,11 @@
   <h1 class="text-center fw-bold mb-4">Born Fresh Everyday</h1>
   
   {% for category in categories %}
-  <div class="mb-5">
-    <h2 class="fw-bold mb-3 text-start border-bottom pb-2">
-      {{ category.name }}
-    </h2>
+    {% if category.products.all %}
+    <div class="mb-5">
+      <h2 class="fw-bold mb-3 text-start border-bottom pb-2">
+        {{ category.name }}
+      </h2>
     
     <div class="row g-4 justify-content-start">
       {% for product in category.products.all %} 
@@ -116,13 +117,19 @@
       <div class="col-6 col-sm-6 col-md-4 col-lg-3 d-flex">
         <div class="card product-card shadow-sm flex-fill text-center">
           <div class="card-img-top">
-            <img src="{{ product.image.url }}" alt="{{ product.name }}" /> 
+            <img id="product-image-{{ product.id }}" src="{% if product.variants.first.image %}{{ product.variants.first.image.url }}{% else %}{% static 'img/placeholder.png' %}{% endif %}" alt="{{ product.name }}" />
           </div>
           <div class="card-body d-flex flex-column">
-            <h5 class="card-title">{{ product.name }}</h5>
-            <p class="card-text text-muted">
-              {{ product.description|truncatewords:12 }}
-            </p>
+            <h5 class="card-title" id="product-name-{{ product.id }}">{{ product.variants.first.name|default:product.name }}</h5>
+            <div class="card-text text-muted" id="product-description-{{ product.id }}">
+              <span class="description-short">{{ product.variants.first.description|truncatewords:12|default:"No description available" }}</span>
+              <span class="description-full" style="display: none;">{{ product.variants.first.description|default:"No description available" }}</span>
+              {% if product.variants.first.description and product.variants.first.description|wordcount > 12 %}
+                <button type="button" class="btn btn-link p-0 text-decoration-none see-more-btn" data-product-id="{{ product.id }}" style="font-size: 0.8rem;">
+                  See more
+                </button>
+              {% endif %}
+            </div>
 
             <form 
               method="POST" 
@@ -130,17 +137,40 @@
               class="d-flex flex-column mt-auto"
             >
               {% csrf_token %}
+                <h5 class="fw-bold mb-2 me-2" id="price-display-{{ product.id }}">£{{ product.variants.first.price|default:"0.00" }}</h5>
+
               <div class="d-flex justify-content-center align-items-center mb-2">
-                <h6 class="fw-bold mb-0 me-2">£{{ product.price }}</h6>
                 <input
                   type="number"
                   name="quantity"
                   min="1"
                   value="1"
-                  class="form-control"
-                  style="max-width: 80px"
+                  class="form-control me-2" 
                 />
+
+                <select 
+                    name="variant_id" 
+                    class="form-select variant-select"  
+                    required
+                    data-product-id="{{ product.id }}"
+                >
+                    {% for variant in product.variants.all %}
+                        {% if variant.is_active %}
+                        <option value="{{ variant.id }}" 
+                                data-price="{{ variant.price }}"
+                                data-name="{{ variant.name }}"
+                                data-description-short="{{ variant.description|truncatewords:12 }}"
+                                data-description-full="{{ variant.description }}"
+                                data-image="{% if variant.image %}{{ variant.image.url }}{% else %}{% static 'img/placeholder.png' %}{% endif %}">
+                            {{ variant.subcategory.name }}
+                        </option>
+                        {% endif %}
+                    {% empty %}
+                        <option disabled>No variants</option>
+                    {% endfor %}
+                </select>
               </div>
+
               <div class="row g-2 product-actions w-100 mx-auto">
                   <div class="col-12 col-sm-6">
                       <button 
@@ -166,11 +196,10 @@
         </div>
       </div>
       
-      {% empty %}
-      <p class="text-muted">No products found in this category.</p>
       {% endfor %}
     </div>
-  </div>
+    </div>
+    {% endif %}
   {% empty %}
   <p class="text-center">No categories with products found.</p>
   {% endfor %}
@@ -269,6 +298,59 @@
             });
         }
 
+        // ---- Variant Selection Handler ----
+        const variantSelects = document.querySelectorAll('.variant-select');
+        variantSelects.forEach(select => {
+            select.addEventListener('change', function() {
+                const productId = this.dataset.productId;
+                const selectedOption = this.options[this.selectedIndex];
+                const price = selectedOption.dataset.price;
+                const variantName = selectedOption.dataset.name;
+                const variantDescriptionShort = selectedOption.dataset.descriptionShort;
+                const variantDescriptionFull = selectedOption.dataset.descriptionFull;
+                const variantImage = selectedOption.dataset.image;
+                
+                // Update price
+                const priceDisplay = document.getElementById(`price-display-${productId}`);
+                if (priceDisplay) {
+                    priceDisplay.textContent = `£${price}`;
+                }
+                
+                // Update product name
+                const productNameDisplay = document.getElementById(`product-name-${productId}`);
+                if (productNameDisplay && variantName) {
+                    productNameDisplay.textContent = variantName;
+                }
+                
+                // Update description
+                const productDescriptionDisplay = document.getElementById(`product-description-${productId}`);
+                if (productDescriptionDisplay) {
+                    const shortSpan = productDescriptionDisplay.querySelector('.description-short');
+                    const fullSpan = productDescriptionDisplay.querySelector('.description-full');
+                    const seeMoreBtn = productDescriptionDisplay.querySelector('.see-more-btn');
+                    
+                    if (shortSpan && fullSpan) {
+                        shortSpan.textContent = variantDescriptionShort || "No description available";
+                        fullSpan.textContent = variantDescriptionFull || "No description available";
+                        
+                        // Show/hide see more button based on description length
+                        if (seeMoreBtn && variantDescriptionFull && variantDescriptionFull.split(' ').length > 12) {
+                            seeMoreBtn.style.display = 'inline';
+                            seeMoreBtn.textContent = 'See more';
+                        } else if (seeMoreBtn) {
+                            seeMoreBtn.style.display = 'none';
+                        }
+                    }
+                }
+                
+                // Update image
+                const productImageDisplay = document.getElementById(`product-image-${productId}`);
+                if (productImageDisplay && variantImage) {
+                    productImageDisplay.src = variantImage;
+                }
+            });
+        });
+
         // ---- Buy Now Button Click ----
         buyNowButtons.forEach(button => {
             button.addEventListener('click', function(e) {
@@ -280,6 +362,7 @@
                 }
                 const form = this.closest('form');
                 const quantity = form.querySelector('input[name="quantity"]').value;
+                const variantId = form.querySelector('select[name="variant_id"]').value;
                 const productId = this.dataset.productId;
                 
                 // Corrected line: Use the URL name with the hyphen
@@ -291,7 +374,10 @@
                         'X-CSRFToken': getCookie('csrftoken'),
                         'Content-Type': 'application/x-www-form-urlencoded',
                     },
-                    body: new URLSearchParams({ quantity: quantity })
+                    body: new URLSearchParams({ 
+                        quantity: quantity,
+                        variant_id: variantId
+                    })
                 })
                 .then(res => res.json())
                 .then(data => {
@@ -318,6 +404,7 @@
                 }
                 const form = this.closest('form');
                 const quantity = form.querySelector('input[name="quantity"]').value;
+                const variantId = form.querySelector('select[name="variant_id"]').value;
                 const productId = this.dataset.productId;
 
                 fetch(form.action, {
@@ -326,7 +413,10 @@
                         'X-CSRFToken': getCookie('csrftoken'),
                         'Content-Type': 'application/x-www-form-urlencoded',
                     },
-                    body: new URLSearchParams({ quantity: quantity })
+                    body: new URLSearchParams({ 
+                        quantity: quantity,
+                        variant_id: variantId
+                    })
                 })
                 .then(res => res.json())
                 .then(data => {
@@ -413,6 +503,35 @@
         
         // Initial call to attach listeners to the sidebar content
         attachSidebarListeners();
+
+        // ---- See More/Show Less Functionality ----
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('see-more-btn')) {
+                e.preventDefault();
+                const productId = e.target.dataset.productId;
+                const productDescriptionDisplay = document.getElementById(`product-description-${productId}`);
+                
+                if (productDescriptionDisplay) {
+                    const shortSpan = productDescriptionDisplay.querySelector('.description-short');
+                    const fullSpan = productDescriptionDisplay.querySelector('.description-full');
+                    const seeMoreBtn = productDescriptionDisplay.querySelector('.see-more-btn');
+                    
+                    if (shortSpan && fullSpan && seeMoreBtn) {
+                        if (shortSpan.style.display !== 'none') {
+                            // Show full description
+                            shortSpan.style.display = 'none';
+                            fullSpan.style.display = 'inline';
+                            seeMoreBtn.textContent = 'Show less';
+                        } else {
+                            // Show short description
+                            shortSpan.style.display = 'inline';
+                            fullSpan.style.display = 'none';
+                            seeMoreBtn.textContent = 'See more';
+                        }
+                    }
+                }
+            }
+        });
 
         // ---- Sidebar Toggle Listeners ----
         cartIcons.forEach(icon => {

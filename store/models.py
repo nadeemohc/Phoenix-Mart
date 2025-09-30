@@ -83,22 +83,44 @@ class SubCategory(models.Model):
         return f"{self.category.name} → {self.name}"
 
 class Product(models.Model):
-    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, related_name="products")
-    subcategory = models.ForeignKey(SubCategory, on_delete=models.SET_NULL, null=True, blank=True, related_name="products")
-    name = models.CharField(max_length=200)
-    description = models.TextField(blank=True, null=True)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
-    stock = models.PositiveIntegerField()
-    image = models.ImageField(upload_to='products/')
-    in_stock = models.BooleanField(default=True)
-    
+    category = models.ForeignKey(
+        Category, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="products"
+    )
+    name = models.CharField(max_length=200)  # Base product name (e.g. Mackerel)
+    is_active = models.BooleanField(default=True, help_text="Uncheck to hide this product from the frontend")
+
     def __str__(self):
         return self.name
 
+class ProductVariant(models.Model):
+    product = models.ForeignKey(
+        Product, on_delete=models.CASCADE, related_name="variants"
+    )
+    subcategory = models.ForeignKey(
+        SubCategory, on_delete=models.CASCADE, related_name="variants"
+    )
+    name = models.CharField(max_length=200)  # e.g. "Mackerel - Cleaned"
+    description = models.TextField(blank=True, null=True)
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    stock = models.PositiveIntegerField()
+    image = models.ImageField(upload_to='product_variants/', blank=True, null=True)
+    in_stock = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True, help_text="Uncheck to hide this variant from the frontend")
+
+    class Meta:
+        unique_together = ('product', 'subcategory')  # one variant per subcategory
+
+    def __str__(self):
+        return f"{self.product.name} - {self.subcategory.name}"
+
     def save(self, *args, **kwargs):
-        # Automatically set in_stock to False if stock drops to 0
-        self.in_stock = self.stock > 0
+        # Check if this is a manual admin save (when in_stock is being explicitly changed)
+        # If not, auto-update in_stock based on stock quantity
+        if not hasattr(self, '_manual_in_stock_override'):
+            self.in_stock = self.stock > 0
         super().save(*args, **kwargs)
+
 
 # Get the custom user model
 User = get_user_model()
