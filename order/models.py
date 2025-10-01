@@ -25,14 +25,13 @@ class Order(models.Model):
         return f"Order #{self.id} by {self.user.email}"
 
 class OrderItem(models.Model):
-    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
-    # Use a string to reference the Product model to avoid circular imports
-    product = models.ForeignKey('store.Product', on_delete=models.CASCADE)
+    order = models.ForeignKey("order.Order", on_delete=models.CASCADE, related_name="items")
+    product = models.ForeignKey("store.ProductVariant", on_delete=models.CASCADE)  # <-- fixed
     quantity = models.PositiveIntegerField(default=1)
-    price = models.DecimalField(max_digits=10, decimal_places=2)  # Price at time of purchase
+    price = models.DecimalField(max_digits=10, decimal_places=2)
 
     def __str__(self):
-        return f"{self.quantity}x {self.product.name} in Order #{self.order.id}"
+        return f"{self.quantity}x {self.product} in Order #{self.order.id}"
 
     def get_total_price(self):
         return self.price * self.quantity

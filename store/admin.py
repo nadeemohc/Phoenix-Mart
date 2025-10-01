@@ -99,41 +99,92 @@ class ProductVariantAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
 
 
-# --- Orders ---
+# --- 1. Address Inline (for Order detail view) ---
+class AddressInline(admin.StackedInline): 
+    """Displays the read-only shipping address details on the Order change page."""
+    model = Address
+    can_delete = False  # Prevent deleting the address without deleting the order
+    verbose_name_plural = 'Delivery Address Details'
+    
+    # Define the fields to show in the inline form
+    fields = ('full_name', 'phone', 'street', 'city', 'state', 'zipcode', 'country')
+    
+    # Make all address fields read-only
+    readonly_fields = ('full_name', 'phone', 'street', 'city', 'state', 'zipcode', 'country')
+    max_num = 1 # Ensures only one address record is shown (OneToOne relationship)
+
+
+# --- 2. Order Item Inline ---
 class OrderItemInline(admin.TabularInline):
+    """Displays the products purchased within the order."""
     model = OrderItem
     extra = 0
     fields = ['product', 'quantity', 'price']
     readonly_fields = ['product', 'quantity', 'price']
 
+
+# --- 3. Order Admin ---
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ['id', 'user', 'user_phone', 'created_at', 'total_price', 'status', 'COD']
+    # list_display: Shows custom full_address and user_phone columns
+    list_display = [
+        'id', 
+        'user', 
+        'user_phone', 
+        'full_address',  # <-- This calls the custom method for the list view
+        'created_at', 
+        'total_price', 
+        'status', 
+        'COD'
+    ]
+    
     list_filter = ['status', 'COD', 'created_at']
     list_editable = ('status',)
-    search_fields = ['user__email', 'delivery_address']
-    inlines = [OrderItemInline]
+    search_fields = ['user__email'] # Removed delivery_address from search if it's unused text field
+    
+    # Use both Inlines
+    inlines = [OrderItemInline, AddressInline]
+    
+    # Fieldsets: REMOVE the generic 'delivery_address' field
     fieldsets = (
         ('Order Information', {'fields': ('user', 'created_at', 'updated_at', 'status', 'COD')}),
         ('Pricing', {'fields': ('total_price',)}),
-        ('Delivery Address', {'fields': ('delivery_address',)}),
+        # Address details are now handled by AddressInline below the fieldsets
     )
+    
+    # Readonly fields for the Order model itself
     readonly_fields = ['user', 'created_at', 'updated_at', 'total_price', 'COD']
 
+    # Custom column method for the Order LIST view (Change List)
+    def full_address(self, obj):
+        """Displays formatted address for the list view."""
+        # Use obj.address to access the related Address model
+        if hasattr(obj, "address"):
+            address = obj.address 
+            # You may want to shorten this for the list view, or keep it long
+            return f"{address.street}, {address.city}, {address.zipcode}" 
+        return "—"
+    full_address.short_description = "Delivery Address"
+
+    # Custom column method for the Order LIST view (Change List)
     def user_phone(self, obj):
+        """Displays phone number from the linked Address model."""
         return getattr(obj.address, "phone", "—")
     user_phone.short_description = "Phone"
 
+    # Override save_model to manage stock when status changes to 'cancelled'
     def save_model(self, request, obj, form, change):
         if change:
             original_obj = Order.objects.get(pk=obj.pk)
             if original_obj.status != 'cancelled' and obj.status == 'cancelled':
                 with transaction.atomic():
                     for item in obj.items.all():
-                        variant = item.product  # assuming `product` now points to ProductVariant
+                        # Assumes item.product points to the ProductVariant model
+                        variant = item.product 
                         variant.stock += item.quantity
                         variant.save(update_fields=['stock'])
         super().save_model(request, obj, form, change)
+
 
 
 # --- Address ---
