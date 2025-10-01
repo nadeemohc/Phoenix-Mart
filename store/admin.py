@@ -2,7 +2,8 @@ from django.utils.safestring import mark_safe
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.db import transaction
-
+from django.urls import reverse
+from django.utils.html import format_html
 from .models import (
     Category, SubCategory, Product, ProductVariant,
     Order, CustomUser, OrderItem, Address
@@ -135,12 +136,14 @@ class OrderAdmin(admin.ModelAdmin):
         'created_at', 
         'total_price', 
         'status', 
-        'COD'
+        'COD',
+        'invoice_download_link'
     ]
     
     list_filter = ['status', 'COD', 'created_at']
     list_editable = ('status',)
     search_fields = ['user__email'] # Removed delivery_address from search if it's unused text field
+    readonly_fields = ('invoice_download_link',)
     
     # Use both Inlines
     inlines = [OrderItemInline, AddressInline]
@@ -154,6 +157,12 @@ class OrderAdmin(admin.ModelAdmin):
     
     # Readonly fields for the Order model itself
     readonly_fields = ['user', 'created_at', 'updated_at', 'total_price', 'COD']
+
+    def invoice_download_link(self, obj):
+        url = reverse('order:generate_invoice', args=[obj.id])
+        return format_html('<a href="{}" class="button" target="_blank">Download Invoice</a>', url)
+    
+    invoice_download_link.short_description = 'Invoice'
 
     # Custom column method for the Order LIST view (Change List)
     def full_address(self, obj):

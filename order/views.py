@@ -1,8 +1,11 @@
 import sweetify, re
+from django.http import HttpResponse 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db import transaction
 from django.contrib.auth.decorators import login_required
 from .models import Order, OrderItem
+from django.template.loader import render_to_string
+from weasyprint import HTML, CSS 
 from store.models import Product, ProductVariant, Address
 from cart.models import Cart, CartItem
 from decimal import Decimal # Import Decimal for precision
@@ -190,3 +193,36 @@ def order_success_page(request, order_id):
     }
     # NOTE: The template path has changed to match your existing file
     return render(request, 'store/order_success.html', context)
+
+@login_required
+def generate_invoice(request, order_id):
+    order = get_object_or_404(Order, id=order_id)
+    
+    # Security Check: Only allow the order owner (or staff/admin) to download the invoice
+    if order.user != request.user and not request.user.is_staff:
+        return HttpResponse("Unauthorized to view this invoice.", status=403)
+
+    # 1. Gather all data for the template
+    context = {
+        'order': order,
+        'order_items': order.items.all(), # Assuming a related_name or default set
+        'shipping_address': order.address, # Assuming one Address per Order
+        'base_url': request.build_absolute_uri('/'), # Important for resolving absolute paths in CSS/images
+        'site_name': 'Phoenix Mart', # Replace with your actual site name/config
+    }
+
+    # 2. Render the invoice HTML template
+    html_content = render_to_string('order/invoice_template.html', context)
+    
+    # 3. Create a WeasyPrint HTML object
+    html = HTML(string=html_content, base_url=request.build_absolute_uri())
+
+    # 4. Generate the PDF
+    pdf_file = html.write_pdf()
+
+    # 5. Prepare the HTTP response for download
+    response = HttpResponse(pdf_file, content_type='application/pdf')
+    filename = f"invoice_{order.id}.pdf"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+
+    return response
