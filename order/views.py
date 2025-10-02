@@ -205,10 +205,10 @@ def generate_invoice(request, order_id):
     # 1. Gather all data for the template
     context = {
         'order': order,
-        'order_items': order.items.all(), # Assuming a related_name or default set
-        'shipping_address': order.address, # Assuming one Address per Order
-        'base_url': request.build_absolute_uri('/'), # Important for resolving absolute paths in CSS/images
-        'site_name': 'Phoenix Mart', # Replace with your actual site name/config
+        'order_items': order.items.all(),
+        'shipping_address': order.address,  # ✅ contains phone
+        'base_url': request.build_absolute_uri('/'),
+        'site_name': 'Phoenix Mart',
     }
 
     # 2. Render the invoice HTML template

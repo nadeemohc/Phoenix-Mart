@@ -30,12 +30,13 @@
         <div style="float: right; width: 48%;">
             <h4>Shipping Address:</h4>
             {% if shipping_address %}
-            <p>{{ shipping_address.full_name }}</p>
-            <p>{{ shipping_address.street }}</p>
-            <p>{{ shipping_address.city }}, {{ shipping_address.zipcode }}</p>
-            <p>{{ shipping_address.country }}</p>
+                <p>{{ shipping_address.full_name }}</p>
+                <p>{{ shipping_address.street }}</p>
+                <p>{{ shipping_address.city }}, {{ shipping_address.zipcode }}</p>
+                <p>{{ shipping_address.country }}</p>
+                <p><strong>Phone:</strong> {{ shipping_address.phone }}</p>
             {% else %}
-            <p>Address not found.</p>
+                <p>Address not found.</p>
             {% endif %}
         </div>
         <div style="clear: both;"></div>

@@ -77,7 +77,22 @@
               <tr>
                 <td>{{ order.id }}</td>
                 <td>{{ order.created_at|date:"M d, Y" }}</td>
-                <td><span class="badge bg-secondary">{{ order.status|title }}</span></td>
+                <td>
+                  {% if order.status == "pending" %}
+                    <span class="badge bg-warning text-dark">Pending</span>
+                  {% elif order.status == "processing" %}
+                    <span class="badge bg-info text-dark">Processing</span>
+                  {% elif order.status == "shipped" %}
+                    <span class="badge bg-primary">Shipped</span>
+                  {% elif order.status == "delivered" %}
+                    <span class="badge bg-success">Delivered</span>
+                  {% elif order.status == "cancelled" %}
+                    <span class="badge bg-danger">Cancelled</span>
+                  {% else %}
+                    <span class="badge bg-secondary">{{ order.status|title }}</span>
+                  {% endif %}
+                </td>
+
                 <td>£{{ order.total_price }}</td>
                 <td>
                   <a href="{% url 'order:generate_invoice' order_id=order.id %}" 
