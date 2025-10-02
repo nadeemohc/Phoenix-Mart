@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Invoice #{{ order.id }}</title>
+    <style>
+        /* Basic CSS for Print/PDF */
+        @page { size: A4; margin: 1cm; }
+        body { font-family: sans-serif; font-size: 10pt; }
+        h1 { color: #333; border-bottom: 2px solid #ddd; padding-bottom: 5px; }
+        .invoice-header, .invoice-details, .total-summary { margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .total-summary p { margin: 2px 0; text-align: right; }
+        .total-summary .grand-total { font-size: 14pt; font-weight: bold; color: #157347; border-top: 1px solid #333; padding-top: 5px; }
+    </style>
+</head>
+<body>
+    <div class="invoice-header">
+        <h1>Invoice - {{ site_name }}</h1>
+        <p>Invoice #: <strong>{{ order.id }}</strong></p>
+        <p>Date: {{ order.created_at|date:"F d, Y" }}</p>
+    </div>
+
+    <div class="invoice-details">
+        <div style="float: left; width: 48%;">
+            <h4>Billed To:</h4>
+            <p>{{ order.user.get_full_name }} ({{ order.user.email }})</p>
+        </div>
+        <div style="float: right; width: 48%;">
+            <h4>Shipping Address:</h4>
+            {% if shipping_address %}
+            <p>{{ shipping_address.full_name }}</p>
+            <p>{{ shipping_address.street }}</p>
+            <p>{{ shipping_address.city }}, {{ shipping_address.zipcode }}</p>
+            <p>{{ shipping_address.country }}</p>
+            {% else %}
+            <p>Address not found.</p>
+            {% endif %}
+        </div>
+        <div style="clear: both;"></div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 50%;">Item Description</th>
+                <th>Qty</th>
+                <th>Unit Price</th>
+                <th>Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in order_items %}
+            <tr>
+                <td>{{ item.product.product.name }} - {{ item.product.subcategory.name }}</td>
+                <td>{{ item.quantity }}</td>
+                <td>£{{ item.price|floatformat:2 }}</td>
+                <td>£{{ item.get_total_price|floatformat:2 }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="total-summary">
+        <p>Subtotal: £{{ order.total_price|floatformat:2 }}</p>
+        <p class="grand-total">Grand Total: £{{ order.total_price|floatformat:2 }}</p>
+    </div>
+
+    <p style="text-align: center; margin-top: 40px;">Thank you for your order!</p>
+</body>
+</html>

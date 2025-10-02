@@ -7,6 +7,66 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <style>
+  .col-6.col-sm-6.col-md-4.col-lg-3 .product-actions {
+      /* This ensures the row takes the full width of the card body */
+      max-width: 100%; 
+  }
+
+  @media (max-width: 575.98px) {
+      /* Mobile-specific styles for better touch interaction */
+      .col-6.col-sm-6.col-md-4.col-lg-3 .product-actions .col-12 {
+          /* Optional: Add a small top margin to the second button if needed, 
+             but Bootstrap's g-2 row gutter should handle spacing */
+      }
+      
+      /* Enhance the visibility of the buttons for mobile */
+      .add-to-cart-btn {
+          font-size: 0.9rem;
+          padding: 0.6rem 0.5rem;
+          min-height: 44px; /* Better touch target */
+      }
+      .buy-now-btn {
+          font-size: 0.9rem;
+          padding: 0.6rem 0.5rem;
+          min-height: 44px; /* Better touch target */
+      }
+      
+      /* Improve form controls for mobile */
+      .form-control-sm, .form-select-sm {
+          font-size: 0.9rem;
+          padding: 0.5rem 0.4rem;
+          min-height: 44px; /* Better touch target */
+      }
+      
+      /* Better spacing for mobile cards */
+      .card-body {
+          padding: 1rem 0.75rem;
+      }
+      
+      /* Improve card title readability on mobile */
+      .card-title {
+          font-size: 1rem;
+          line-height: 1.3;
+      }
+      
+      /* Better description text on mobile */
+      .card-text {
+          font-size: 0.85rem;
+          line-height: 1.4;
+      }
+  }
+
+  /* Ensure the buttons are side-by-side on larger screens where space permits */
+  @media (min-width: 576px) {
+      /* On screens >= sm, the .col-sm-6 classes will place them side-by-side */
+      .product-actions .col-sm-6:first-child {
+          padding-right: 0.25rem !important; /* Adjust spacing between buttons */
+      }
+      .product-actions .col-sm-6:last-child {
+          padding-left: 0.25rem !important; /* Adjust spacing between buttons */
+      }
+  }
+  
   /* Your existing CSS styles */
   .card-img-top {
     width: 100%;
@@ -40,6 +100,20 @@
     right: 5px !important;
     transform: none !important;
   }
+  
+  /* Individual card state management */
+  .product-card {
+    transition: height 0.3s ease;
+  }
+  
+  .product-card.description-expanded {
+    /* Optional: Add any visual indication that this card is expanded */
+  }
+  
+  /* Individual card state management - using unique IDs now */
+  .description-short, .description-full {
+    /* Let JavaScript handle the display logic with unique IDs */
+  }
 </style>
 
 <div
@@ -70,24 +144,31 @@
   <h1 class="text-center fw-bold mb-4">Born Fresh Everyday</h1>
   
   {% for category in categories %}
-  <div class="mb-5">
-    <h2 class="fw-bold mb-3 text-start border-bottom pb-2">
-      {{ category.name }}
-    </h2>
+    {% if category.products.all %}
+    <div class="mb-5">
+      <h2 class="fw-bold mb-3 text-start border-bottom pb-2">
+        {{ category.name }}
+      </h2>
     
     <div class="row g-4 justify-content-start">
       {% for product in category.products.all %} 
       
       <div class="col-6 col-sm-6 col-md-4 col-lg-3 d-flex">
-        <div class="card product-card shadow-sm flex-fill text-center">
+        <div class="card product-card shadow-sm flex-fill text-center" data-product-id="{{ product.id }}">
           <div class="card-img-top">
-            <img src="{{ product.image.url }}" alt="{{ product.name }}" /> 
+            <img id="product-image-{{ product.id }}" src="{% if product.variants.first.image %}{{ product.variants.first.image.url }}{% else %}{% static 'img/placeholder.png' %}{% endif %}" alt="{{ product.name }}" />
           </div>
           <div class="card-body d-flex flex-column">
-            <h5 class="card-title">{{ product.name }}</h5>
-            <p class="card-text text-muted">
-              {{ product.description|truncatewords:12 }}
-            </p>
+            <h5 class="card-title" id="product-name-{{ product.id }}">{{ product.variants.first.name|default:product.name }}</h5>
+            <div class="card-text text-muted" id="product-description-{{ product.id }}">
+              <span id="description-short-{{ product.id }}" class="description-short">{{ product.variants.first.description|truncatewords:12|default:"No description available" }}</span>
+              <span id="description-full-{{ product.id }}" class="description-full" style="display: none;">{{ product.variants.first.description|default:"No description available" }}</span>
+              {% if product.variants.first.description and product.variants.first.description|wordcount > 12 %}
+                <button type="button" class="btn btn-link p-0 text-decoration-none see-more-btn" data-product-id="{{ product.id }}" style="font-size: 0.8rem;">
+                  See more
+                </button>
+              {% endif %}
+            </div>
 
             <form 
               method="POST" 
@@ -95,44 +176,72 @@
               class="d-flex flex-column mt-auto"
             >
               {% csrf_token %}
-              <div class="d-flex justify-content-center align-items-center mb-2">
-                <h6 class="fw-bold mb-0 me-2">£{{ product.price }}</h6>
-                <input
-                  type="number"
-                  name="quantity"
-                  min="1"
-                  value="1"
-                  class="form-control"
-                  style="max-width: 80px"
-                />
-              </div>
-              <div class="d-flex justify-content-between">
-                  <button 
-                      type="submit" 
-                      class="btn btn-dark w-50 add-to-cart-btn" 
+                <h5 class="fw-bold mb-2 me-2" id="price-display-{{ product.id }}">£{{ product.variants.first.price|default:"0.00" }}</h5>
+
+              <div class="row g-2 mb-2">
+                <div class="col-5 col-sm-4">
+                  <input
+                    type="number"
+                    name="quantity"
+                    min="1"
+                    value="1"
+                    class="form-control form-control-sm text-center" 
+                  />
+                </div>
+                <div class="col-7 col-sm-8">
+                  <select 
+                      name="variant_id" 
+                      class="form-select form-select-sm variant-select"  
+                      required
                       data-product-id="{{ product.id }}"
                   >
-                      Add to Cart
-                  </button>
+                      {% for variant in product.variants.all %}
+                          {% if variant.is_active %}
+                          <option value="{{ variant.id }}" 
+                                  data-price="{{ variant.price }}"
+                                  data-name="{{ variant.name }}"
+                                  data-description-short="{{ variant.description|truncatewords:12 }}"
+                                  data-description-full="{{ variant.description }}"
+                                  data-image="{% if variant.image %}{{ variant.image.url }}{% else %}{% static 'img/placeholder.png' %}{% endif %}">
+                              {{ variant.subcategory.name }}
+                          </option>
+                          {% endif %}
+                      {% empty %}
+                          <option disabled>No variants</option>
+                      {% endfor %}
+                  </select>
+                </div>
+              </div>
 
-                  <button 
-                    type="button" 
-                    class="btn btn-warning w-50 buy-now-btn ms-2" 
-                    data-product-id="{{ product.id }}"
-                  >
-                    Buy Now
-                  </button>
+              <div class="row g-2 product-actions w-100 mx-auto">
+                  <div class="col-12 col-sm-6">
+                      <button 
+                          type="submit" 
+                          class="btn btn-dark w-100 add-to-cart-btn" 
+                          data-product-id="{{ product.id }}"
+                      >
+                          Add to Cart
+                      </button>
+                  </div>
+                  <div class="col-12 col-sm-6">
+                      <button 
+                        type="button" 
+                        class="btn btn-warning w-100 buy-now-btn" 
+                        data-product-id="{{ product.id }}"
+                      >
+                        Buy Now
+                      </button>
+                  </div>
               </div>
             </form>
           </div>
         </div>
       </div>
       
-      {% empty %}
-      <p class="text-muted">No products found in this category.</p>
       {% endfor %}
     </div>
-  </div>
+    </div>
+    {% endif %}
   {% empty %}
   <p class="text-center">No categories with products found.</p>
   {% endfor %}
@@ -155,6 +264,11 @@
         const cartItemsWrap = document.querySelector(".cart-items");
         const cartIcons = document.querySelectorAll(".cart-icon");
         const sidebarCheckoutBtn = document.getElementById("sidebarCheckoutBtn");
+
+        // NEW: Get references to the hidden fields in the checkout modal (from checkout.html)
+        const checkoutVariantIdInput = document.getElementById('checkout_variant_id');
+        const checkoutQuantityInput = document.getElementById('checkout_quantity');
+
 
         // CSRF helper function
         function getCookie(name) {
@@ -197,6 +311,11 @@
                     const isBuyNow = this.classList.contains('buy-now-input');
 
                     if (isBuyNow) {
+                        // FIX: Update the hidden quantity field for final submission
+                        if (checkoutQuantityInput) {
+                            checkoutQuantityInput.value = newQty;
+                        }
+                        
                         const lineTotalCell = this.closest('tr').querySelector('.item-line-total');
                         const unitPriceCell = this.closest('tr').querySelector('td:nth-child(3)');
                         const unitPrice = parseFloat(unitPriceCell.textContent.replace('£', ''));
@@ -231,7 +350,60 @@
             });
         }
 
-        // ---- Buy Now Button Click ----
+        // ---- Variant Selection Handler ----
+        const variantSelects = document.querySelectorAll('.variant-select');
+        variantSelects.forEach(select => {
+            select.addEventListener('change', function() {
+                const productId = this.dataset.productId;
+                const selectedOption = this.options[this.selectedIndex];
+                const price = selectedOption.dataset.price;
+                const variantName = selectedOption.dataset.name;
+                const variantDescriptionShort = selectedOption.dataset.descriptionShort;
+                const variantDescriptionFull = selectedOption.dataset.descriptionFull;
+                const variantImage = selectedOption.dataset.image;
+                
+                // Update price
+                const priceDisplay = document.getElementById(`price-display-${productId}`);
+                if (priceDisplay) {
+                    priceDisplay.textContent = `£${price}`;
+                }
+                
+                // Update product name
+                const productNameDisplay = document.getElementById(`product-name-${productId}`);
+                if (productNameDisplay && variantName) {
+                    productNameDisplay.textContent = variantName;
+                }
+                
+                // Update description
+                const productDescriptionDisplay = document.getElementById(`product-description-${productId}`);
+                if (productDescriptionDisplay) {
+                    const shortSpan = productDescriptionDisplay.querySelector('.description-short');
+                    const fullSpan = productDescriptionDisplay.querySelector('.description-full');
+                    const seeMoreBtn = productDescriptionDisplay.querySelector('.see-more-btn');
+                    
+                    if (shortSpan && fullSpan) {
+                        shortSpan.textContent = variantDescriptionShort || "No description available";
+                        fullSpan.textContent = variantDescriptionFull || "No description available";
+                        
+                        // Show/hide see more button based on description length
+                        if (seeMoreBtn && variantDescriptionFull && variantDescriptionFull.split(' ').length > 12) {
+                            seeMoreBtn.style.display = 'inline';
+                            seeMoreBtn.textContent = 'See more';
+                        } else if (seeMoreBtn) {
+                            seeMoreBtn.style.display = 'none';
+                        }
+                    }
+                }
+                
+                // Update image
+                const productImageDisplay = document.getElementById(`product-image-${productId}`);
+                if (productImageDisplay && variantImage) {
+                    productImageDisplay.src = variantImage;
+                }
+            });
+        });
+
+        // ---- Buy Now Button Click (FIXED LOGIC) ----
         buyNowButtons.forEach(button => {
             button.addEventListener('click', function(e) {
                 e.preventDefault();
@@ -242,18 +414,31 @@
                 }
                 const form = this.closest('form');
                 const quantity = form.querySelector('input[name="quantity"]').value;
+                const variantId = form.querySelector('select[name="variant_id"]').value;
                 const productId = this.dataset.productId;
                 
-                // Corrected line: Use the URL name with the hyphen
-                checkoutForm.action = `{% url 'order:confirm_order' %}?buy_now=${productId}`;
+                // FIX 1: Set the hidden fields in the checkout form for POST submission
+                // These values are read by the confirm_order view on form submit.
+                if (checkoutVariantIdInput && checkoutQuantityInput) {
+                    checkoutVariantIdInput.value = variantId;
+                    checkoutQuantityInput.value = quantity;
+                }
+                
+                // FIX 2: Set the action URL to the correct confirmation endpoint, 
+                // removing the unnecessary query parameter.
+                checkoutForm.action = `{% url 'order:confirm_order' %}`;
 
+                // This AJAX call renders the summary HTML inside the modal
                 fetch(`/buy-now/${productId}/`, {
                     method: 'POST',
                     headers: {
                         'X-CSRFToken': getCookie('csrftoken'),
                         'Content-Type': 'application/x-www-form-urlencoded',
                     },
-                    body: new URLSearchParams({ quantity: quantity })
+                    body: new URLSearchParams({ 
+                        quantity: quantity,
+                        variant_id: variantId
+                    })
                 })
                 .then(res => res.json())
                 .then(data => {
@@ -280,6 +465,7 @@
                 }
                 const form = this.closest('form');
                 const quantity = form.querySelector('input[name="quantity"]').value;
+                const variantId = form.querySelector('select[name="variant_id"]').value;
                 const productId = this.dataset.productId;
 
                 fetch(form.action, {
@@ -288,7 +474,10 @@
                         'X-CSRFToken': getCookie('csrftoken'),
                         'Content-Type': 'application/x-www-form-urlencoded',
                     },
-                    body: new URLSearchParams({ quantity: quantity })
+                    body: new URLSearchParams({ 
+                        quantity: quantity,
+                        variant_id: variantId
+                    })
                 })
                 .then(res => res.json())
                 .then(data => {
@@ -376,6 +565,31 @@
         // Initial call to attach listeners to the sidebar content
         attachSidebarListeners();
 
+        // ---- See More/Show Less Functionality ----
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('see-more-btn')) {
+                e.preventDefault();
+                const productId = e.target.dataset.productId;
+                const shortSpan = document.getElementById(`description-short-${productId}`);
+                const fullSpan = document.getElementById(`description-full-${productId}`);
+                const seeMoreBtn = e.target;
+                
+                if (shortSpan && fullSpan && seeMoreBtn) {
+                    if (shortSpan.style.display !== 'none') {
+                        // Currently showing short, so show full
+                        shortSpan.style.display = 'none';
+                        fullSpan.style.display = 'inline';
+                        seeMoreBtn.textContent = 'Show less';
+                    } else {
+                        // Currently showing full, so show short
+                        shortSpan.style.display = 'inline';
+                        fullSpan.style.display = 'none';
+                        seeMoreBtn.textContent = 'See more';
+                    }
+                }
+            }
+        });
+
         // ---- Sidebar Toggle Listeners ----
         cartIcons.forEach(icon => {
             icon.addEventListener("click", () => {
@@ -399,6 +613,12 @@
                 cartSidebar.classList.remove("open");
                 cartBackdrop.style.display = "none";
 
+                // Ensure Buy Now fields are cleared for cart checkout
+                if (checkoutVariantIdInput && checkoutQuantityInput) {
+                    checkoutVariantIdInput.value = "";
+                    checkoutQuantityInput.value = "";
+                }
+                
                 checkoutForm.action = "{% url 'order:confirm_order' %}";
                 fetch('/cart/summary/')
                     .then(res => res.json())

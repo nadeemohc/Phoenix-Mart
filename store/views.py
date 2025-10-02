@@ -1,17 +1,17 @@
 import json
-from django.db import models
+from django.db import models, transaction
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout, authenticate
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.views.generic.edit import CreateView
 from django.urls import reverse_lazy
-from store.models import Product, CustomUser, Address, Category
+from store.models import Product, CustomUser, Address, Category, ProductVariant
 from cart.models import Cart, CartItem
 from .forms import CustomAuthenticationForm, CustomUserCreationForm
 from django.template.loader import render_to_string
 from django.contrib.auth.decorators import login_required
-from django.db import transaction
+from django.db.models import Prefetch, Q
 
 
 # store/views.py
@@ -21,22 +21,23 @@ from store.models import Product, CustomUser, Address, Category # Make sure to i
 # ... (Other imports) ...
 
 def index(request):
-    # --- 1. Fetch Categories and Prefetch Products (FIXED) ---
-    
-    categories = Category.objects.filter(
-        # FIX 1: Change 'product__in_stock' to 'products__in_stock'
-        products__in_stock=1
-    ).prefetch_related(
-        models.Prefetch(
-            # FIX 2: Change 'product_set' to 'products'
-            'products', 
-            queryset=Product.objects.filter(in_stock=1).order_by('name')
+    # --- 1. Prefetch only active products that have at least one active in-stock variant ---
+    products_qs = Product.objects.filter(is_active=True).prefetch_related(
+        Prefetch(
+            'variants',
+            queryset=ProductVariant.objects.filter(in_stock=True, is_active=True),
+            to_attr='available_variants'  # each product will now have this attr
         )
+    ).filter(
+        variants__in_stock=True, variants__is_active=True  # only include products with at least one active in-stock variant
+    ).distinct().order_by('name')
+
+    # --- 2. Prefetch products for each category ---
+    categories = Category.objects.prefetch_related(
+        Prefetch('products', queryset=products_qs)
     ).distinct()
 
-    # --- 2. Cart Logic (Remains the same) ---
-    # ... (Your existing cart logic) ...
-    
+    # --- 3. Cart Logic (Remains the same) ---
     cart = None
     cart_count = 0
     cart_total = 0
@@ -44,7 +45,7 @@ def index(request):
     if request.user.is_authenticated and not getattr(request.user, "is_guest", False):
         try:
             cart = Cart.objects.prefetch_related(
-                models.Prefetch('items', queryset=CartItem.objects.select_related('product'))
+                Prefetch('items', queryset=CartItem.objects.select_related('product'))
             ).get(user=request.user)
         except Cart.DoesNotExist:
             pass
@@ -52,11 +53,11 @@ def index(request):
         if request.session.session_key:
             try:
                 cart = Cart.objects.prefetch_related(
-                    models.Prefetch('items', queryset=CartItem.objects.select_related('product'))
+                    Prefetch('items', queryset=CartItem.objects.select_related('product'))
                 ).get(session_key=request.session.session_key, is_guest=True)
             except Cart.DoesNotExist:
                 pass
-    
+
     cart_items = []
     if cart:
         cart_items_with_totals = []
@@ -77,12 +78,17 @@ def index(request):
     request.cart_items = cart_items
     request.cart_total = cart_total
 
-    # --- 3. Update Context ---
+    # --- 4. Render template ---
     return render(
         request,
         "store/index.html",
-        {"categories": categories, "cart_items": cart_items, "cart_total": cart_total},
+        {
+            "categories": categories,
+            "cart_items": cart_items,
+            "cart_total": cart_total,
+        },
     )
+
 
 
 
@@ -113,29 +119,32 @@ def buy_now(request, product_id):
     if request.method == "POST":
         try:
             quantity = int(request.POST.get("quantity", 1))
+            variant_id = int(request.POST.get("variant_id"))
         except (ValueError, TypeError):
-            return JsonResponse({"success": False, "message": "Invalid quantity."}, status=400)
+            return JsonResponse({"success": False, "message": "Invalid quantity or variant."}, status=400)
             
         product = get_object_or_404(Product, id=product_id)
-        print(f'product = {product}')
+        variant = get_object_or_404(ProductVariant, id=variant_id, product=product, is_active=True)
+        
+        if not variant.in_stock:
+            return JsonResponse({"success": False, "message": "This variant is out of stock."}, status=400)
 
         # Store the Buy Now item data in the session
         # This is a temporary "cart" for the checkout process
         request.session['buy_now_item'] = {
-            'product_id': product.id,
-            'name': product.name,
+            'variant_id': variant.id,
+            'name': f"{product.name} - {variant.subcategory.name}",
             'quantity': quantity,
-            'price': float(product.price),
-            'line_total': float(product.price * quantity)
+            'price': float(variant.price),
+            'line_total': float(variant.price * quantity)
         }
         
         # This part remains the same to render the summary for the modal
         temp_item = {
-            "product": product,
+            "product": variant,  # Use variant instead of product
             "quantity": quantity,
-            "line_total": product.price * quantity,
+            "line_total": variant.price * quantity,
         }
-        print(f'temp_item = {temp_item}')
 
         summary_html = render_to_string(
             "store/partials/checkout_summary.html",
@@ -146,7 +155,6 @@ def buy_now(request, product_id):
             },
             request=request,
         )
-        print(f'summary_html{summary_html}')
 
         return JsonResponse({
             "success": True,

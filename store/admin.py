@@ -2,8 +2,14 @@ from django.utils.safestring import mark_safe
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.db import transaction
-from .models import Category, SubCategory, Product, Order, CustomUser, OrderItem, Address
+from django.urls import reverse
+from django.utils.html import format_html
+from .models import (
+    Category, SubCategory, Product, ProductVariant,
+    Order, CustomUser, OrderItem, Address
+)
 
+# --- User Admin ---
 class CustomUserAdmin(UserAdmin):
     list_display = ('email', 'first_name', 'last_name', 'is_staff', 'is_active')
     list_filter = ('is_staff', 'is_superuser', 'is_active', 'groups')
@@ -29,18 +35,17 @@ class CustomUserAdmin(UserAdmin):
 
 admin.site.register(CustomUser, CustomUserAdmin)
 
-# Inline for SubCategory inside Category
+
+# --- Category/SubCategory ---
 class SubCategoryInline(admin.TabularInline):
     model = SubCategory
     extra = 1
-
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
     list_display = ("name", "slug")
     prepopulated_fields = {"slug": ("name",)}
     inlines = [SubCategoryInline]
-
 
 @admin.register(SubCategory)
 class SubCategoryAdmin(admin.ModelAdmin):
@@ -49,97 +54,150 @@ class SubCategoryAdmin(admin.ModelAdmin):
     list_filter = ("category",)
 
 
+# --- Variants ---
+
+class ProductVariantInline(admin.TabularInline):
+    model = ProductVariant
+    extra = 1
+    show_change_link = True  # lets you click through to full variant form
+
+
+@admin.register(Product)
+class ProductAdmin(admin.ModelAdmin):
+    list_display = ("name", "category", "is_active", "preview_image")
+    list_editable = ("is_active",)
+    search_fields = ("name",)
+    list_filter = ("category", "is_active")
+    ordering = ("name",)
+    inlines = [ProductVariantInline]
+
+    def preview_image(self, obj):
+        # Show image from the first variant if available
+        first_variant = obj.variants.first()
+        if first_variant and first_variant.image:
+            return mark_safe(f'<img src="{first_variant.image.url}" width="50" height="50" style="object-fit:cover;" />')
+        return "—"
+    preview_image.short_description = "Image"
+
+
+@admin.register(ProductVariant)
+class ProductVariantAdmin(admin.ModelAdmin):
+    list_display = ("product", "subcategory", "price", "stock", "in_stock", "is_active", "preview_image")
+    list_editable = ("price", "stock", "in_stock", "is_active")
+    list_filter = ("subcategory", "in_stock", "is_active")
+    search_fields = ("product__name", "subcategory__name")
+    ordering = ("product", "subcategory")
+
+    def preview_image(self, obj):
+        if obj.image:
+            return mark_safe(f'<img src="{obj.image.url}" width="50" height="50" style="object-fit:cover;" />')
+        return "—"
+    preview_image.short_description = "Image"
+
+    def save_model(self, request, obj, form, change):
+        # Mark that in_stock is being manually overridden
+        obj._manual_in_stock_override = True
+        super().save_model(request, obj, form, change)
+
+
+# --- 1. Address Inline (for Order detail view) ---
+class AddressInline(admin.StackedInline): 
+    """Displays the read-only shipping address details on the Order change page."""
+    model = Address
+    can_delete = False  # Prevent deleting the address without deleting the order
+    verbose_name_plural = 'Delivery Address Details'
+    
+    # Define the fields to show in the inline form
+    fields = ('full_name', 'phone', 'street', 'city', 'state', 'zipcode', 'country')
+    
+    # Make all address fields read-only
+    readonly_fields = ('full_name', 'phone', 'street', 'city', 'state', 'zipcode', 'country')
+    max_num = 1 # Ensures only one address record is shown (OneToOne relationship)
+
+
+# --- 2. Order Item Inline ---
 class OrderItemInline(admin.TabularInline):
-    """
-    Defines the inline representation of OrderItem for the Django admin.
-    This allows OrderItem objects to be edited directly on the Order page.
-    """
+    """Displays the products purchased within the order."""
     model = OrderItem
     extra = 0
     fields = ['product', 'quantity', 'price']
     readonly_fields = ['product', 'quantity', 'price']
 
 
-# Use a decorator to register the Order model with the custom admin class
+# --- 3. Order Admin ---
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    """
-    Customizes the Django admin interface for the Order model.
-    """
-    # 'list_display' controls which fields are shown on the change list page.
-    list_display = ['id', 'user', 'user_phone', 'created_at', 'total_price', 'status', 'COD']
+    # list_display: Shows custom full_address and user_phone columns
+    list_display = [
+        'id', 
+        'user', 
+        'user_phone', 
+        'full_address',  # <-- This calls the custom method for the list view
+        'created_at', 
+        'total_price', 
+        'status', 
+        'COD',
+        'invoice_download_link'
+    ]
     
-    # 'list_filter' adds a sidebar for filtering the list.
     list_filter = ['status', 'COD', 'created_at']
-
     list_editable = ('status',)
+    search_fields = ['user__email'] # Removed delivery_address from search if it's unused text field
+    readonly_fields = ('invoice_download_link',)
     
-    # 'search_fields' enables a search box for these fields.
-    search_fields = ['user__email', 'delivery_address']
+    # Use both Inlines
+    inlines = [OrderItemInline, AddressInline]
     
-    # 'inlines' is the key part that includes the OrderItemInline.
-    # This displays the related OrderItems on the Order's detail page.
-    inlines = [OrderItemInline]
-
-    # 'fieldsets' can be used to group fields in the detail view.
+    # Fieldsets: REMOVE the generic 'delivery_address' field
     fieldsets = (
-        ('Order Information', {
-            'fields': ('user', 'created_at', 'updated_at', 'status', 'COD'),
-        }),
-        ('Pricing', {
-            'fields': ('total_price',),
-        }),
-        ('Delivery Address', {
-            'fields': ('delivery_address',),
-        }),
+        ('Order Information', {'fields': ('user', 'created_at', 'updated_at', 'status', 'COD')}),
+        ('Pricing', {'fields': ('total_price',)}),
+        # Address details are now handled by AddressInline below the fieldsets
     )
-
-    # 'readonly_fields' prevents these fields from being edited.
-    readonly_fields = ['user', 'created_at', 'updated_at', 'total_price', 'COD']
     
-    # Custom column to show user phone
+    # Readonly fields for the Order model itself
+    readonly_fields = ['user', 'created_at', 'updated_at', 'total_price', 'COD']
+
+    def invoice_download_link(self, obj):
+        url = reverse('order:generate_invoice', args=[obj.id])
+        return format_html('<a href="{}" class="button" target="_blank">Download Invoice</a>', url)
+    
+    invoice_download_link.short_description = 'Invoice'
+
+    # Custom column method for the Order LIST view (Change List)
+    def full_address(self, obj):
+        """Displays formatted address for the list view."""
+        # Use obj.address to access the related Address model
+        if hasattr(obj, "address"):
+            address = obj.address 
+            # You may want to shorten this for the list view, or keep it long
+            return f"{address.street}, {address.city}, {address.zipcode}" 
+        return "—"
+    full_address.short_description = "Delivery Address"
+
+    # Custom column method for the Order LIST view (Change List)
     def user_phone(self, obj):
-        return obj.address.phone or "—"
+        """Displays phone number from the linked Address model."""
+        return getattr(obj.address, "phone", "—")
     user_phone.short_description = "Phone"
 
+    # Override save_model to manage stock when status changes to 'cancelled'
     def save_model(self, request, obj, form, change):
-        """
-        Overrides the save behavior to manage stock when an order is cancelled.
-        """
-        # Get the original object from the database before the form changes are saved
         if change:
             original_obj = Order.objects.get(pk=obj.pk)
-
-            # Check if the status has been changed to 'cancelled'
             if original_obj.status != 'cancelled' and obj.status == 'cancelled':
                 with transaction.atomic():
-                    # Return items to stock
                     for item in obj.items.all():
-                        product = item.product
-                        product.stock += item.quantity
-                        product.save(update_fields=['stock'])
-                        
-        # Save the Order object after handling the stock
+                        # Assumes item.product points to the ProductVariant model
+                        variant = item.product 
+                        variant.stock += item.quantity
+                        variant.save(update_fields=['stock'])
         super().save_model(request, obj, form, change)
-# Register the Product model as well for completeness
-@admin.register(Product)
-class ProductAdmin(admin.ModelAdmin):
-    list_display = ("name", "category", "subcategory", "price", "stock", "in_stock", "preview_image")
-    list_editable = ("price", "stock", "in_stock")
-    list_filter = ("category", "subcategory")
-    search_fields = ("name",)
-    ordering = ("name",)
-
-    def preview_image(self, obj):
-        if obj.image:
-            return mark_safe(f'<img src="{obj.image.url}" width="50" height="50" style="object-fit:cover;" />')
-        return "No Image"
-    
-    preview_image.short_description = "Image"
 
 
+
+# --- Address ---
 @admin.register(Address)
 class AddressAdmin(admin.ModelAdmin):
     list_display = ("full_name", "order", "phone", "street", "city", "state", "zipcode", "country")
     list_filter = ("order", "city", "full_name")
-    # search_fields = ("")

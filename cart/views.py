@@ -2,7 +2,7 @@ import json
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_POST
 from cart.models import Cart, CartItem
-from store.models import Product
+from store.models import Product, ProductVariant
 from django.http import JsonResponse
 from django.template.loader import render_to_string
 
@@ -11,6 +11,16 @@ from django.template.loader import render_to_string
 @require_POST
 def add_to_cart(request, product_id):
     product = get_object_or_404(Product, id=product_id)
+    variant_id = request.POST.get("variant_id")
+    
+    if not variant_id:
+        return JsonResponse({"success": False, "message": "Variant selection required."})
+    
+    variant = get_object_or_404(ProductVariant, id=variant_id, product=product, is_active=True)
+    
+    if not variant.in_stock:
+        return JsonResponse({"success": False, "message": "This variant is out of stock."})
+    
     quantity = int(request.POST.get("quantity", 1))
 
     # Get or create cart
@@ -24,7 +34,7 @@ def add_to_cart(request, product_id):
         )
 
     # Increment if exists, otherwise create
-    cart_item, created = CartItem.objects.get_or_create(cart=cart, product=product)
+    cart_item, created = CartItem.objects.get_or_create(cart=cart, product=variant)
     if created:
         cart_item.quantity = quantity
     else:
@@ -69,13 +79,13 @@ def remove_cart_item(request, item_id):
 
 
 def _cart_response(cart):
-    cart_items = CartItem.objects.filter(cart=cart).select_related("product")
+    cart_items = CartItem.objects.filter(cart=cart).select_related("product", "product__product")
 
     cart_items_with_totals = [
         {
             "id": item.id,
             "name": item.product.name,
-            "image_url": item.product.image.url,
+            "image_url": item.product.image.url if item.product.image else None,
             "price": item.product.price,
             "quantity": item.quantity,
             "line_total": item.line_total,
