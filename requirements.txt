@@ -1,10 +1,13 @@
 asgiref==3.9.1
+Brotli==1.1.0
 certifi==2025.8.3
 cffi==1.17.1
 charset-normalizer==3.4.3
 cryptography==45.0.6
+cssselect2==0.8.0
 defusedxml==0.7.1
 Django==5.2.5
+fonttools==4.60.1
 gunicorn==23.0.0
 idna==3.10
 oauthlib==3.3.1
@@ -12,7 +15,9 @@ packaging==25.0
 pillow==11.3.0
 psycopg2-binary==2.9.10
 pycparser==2.22
+pydyf==0.11.0
 PyJWT==2.10.1
+pyphen==0.17.2
 python-dotenv==1.1.1
 python3-openid==3.2.0
 requests==2.32.4
@@ -21,5 +26,10 @@ social-auth-app-django==5.5.1
 social-auth-core==4.7.0
 sqlparse==0.5.3
 sweetify==2.3.1
+tinycss2==1.4.0
+tinyhtml5==2.0.0
 urllib3==2.5.0
+weasyprint==66.0
+webencodings==0.5.1
 whitenoise==6.9.0
+zopfli==0.2.3.post1
